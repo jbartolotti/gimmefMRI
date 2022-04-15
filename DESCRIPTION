@@ -1,0 +1,14 @@
+Package: gimmefMRI
+Title: Wrapper for GIMME Specialized for fMRI
+Version: 0.0.0.9000
+Authors@R: 
+    person("James", "Bartolotti",, "jamesbartolotti@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: Wrapper for GIMME specialized for fMRI, additional description goes here.
+License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
+    license
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+Imports:
+    gimme
