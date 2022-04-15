@@ -1,0 +1,16 @@
+longname,shortname
+BGHAT_Left_Caudate,LCaud
+BGHAT_Left_Putamen,LPut
+BGHAT_Left_GPe,LGPe
+BGHAT_Left_GPi,LGPi
+BGHAT_Left_STN,LSTN
+BGHAT_Right_Caudate,RCaud
+BGHAT_Right_Putamen,RPut
+BGHAT_Right_GPe,RGPe
+BGHAT_Right_GPi,RGPi
+BGHAT_Right_STN,RSTN
+cc200_dACC,dACC
+cc200_Left_AntIntP,LAntIntP
+cc200_Left_M1Hand,LM1
+cc200_Left_SMA,LSMA
+cc200_Left_DLPFC,LDLPFC

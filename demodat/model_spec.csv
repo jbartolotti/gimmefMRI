@@ -1,0 +1,3 @@
+model_name,group_thresh,subgroup_thresh,network_name,censor_conditions,run,subselect
+BGR_g50_sg50,0.5,0.5,cc200L_BGR,NA,Pulse20,sub_all
+BGR_g75_sg75,0.75,0.75,cc200L_BGR,censor_task,Pulse20,sub_all
