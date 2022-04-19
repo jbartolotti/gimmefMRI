@@ -1,0 +1,12 @@
+make the parallel packages not required but recommended. If they are not present, fallback to numcores always = 1.
+
+test the gimme text-writing code. Add support for apriori subgroup, apriori paths, exogenous factors
+
+
+make timecourses from brains
+
+
+LATER
+visualize distributions
+
+pretty figures

@@ -61,3 +61,78 @@ initializeGimmeFolders <- function(savedir,mm){
   }
 
 }
+
+writeGimmeCode <- function(savedir, mm, maxcores = .5){
+  numcores <- useCores(maxcores)
+  nummodels <- dim(mm$model_spec)[1]
+  if (numcores == 1){
+    fortext <- as.character()
+    #  fortext <- sprintf('for(i in 1:%s){',nummodels)
+  }else{
+    fortext <- c(sprintf('registerDoParallel(%s)',numcores),sprintf('foreach(i=1:%s) %%dopar%% {',nummodels))
+  }
+
+  runmodel_fileConn <- file(file.path(savedir,'runmodels.R'),'wb')
+  write(fortext, runmodel_fileConn,append = TRUE)
+
+  for(mi in 1:nummodels){
+    thismod <- mm$model_spec[mi,]
+    input_basedir = file.path(savedir,thismod$model_name,'input_files')
+    output_basedir = file.path(savedir,thismod$model_name)
+    write(c(
+        sprintf('  gimme(data = %s,',input_basedir),
+        sprintf('      out = %s,',output_basedir),
+                '      sep = \',\'',
+                '      ar = TRUE,',
+                '      plot = TRUE,',
+        sprintf('      groupcutoff = %s,',thismod$group_thresh)),
+      runmodel_fileConn, append = TRUE)
+
+    #subgroups
+    if(!is.na(thismod$subgroup_thresh) && length(thismod$subgroup_thresh)>0){
+      write(c(
+                '      subgroup = TRUE,',
+        sprintf('      subcutoff = %s,',thismod$subgroup_thresh)),
+        runmodel_fileConn, append = TRUE)
+    } else{
+      write(c(
+        '      subgroup = FALSE,'),
+        runmodel_fileConn, append = TRUE)
+    }
+    #apriori subgroups
+    if(!is.na(thismod$subgroup_thresh) && length(thismod$subgroup_thresh)>0 &&
+       !is.na(thismod$subgroup_names) && length(thismod$subgroup_names)>0){
+      write(c(
+        sprintf('      confirm_subgroup = %s,','SUBGROUPS')),
+        runmodel_fileConn, append = TRUE)
+    } else {
+      write(c(
+                '      confirm_subgroup = NULL,'),
+        runmodel_fileConn, append = TRUE)
+    }
+    #apriori connections
+    if(FALSE){
+    } else{
+    write(c(
+      '      paths = NULL,'),
+      runmodel_fileConn, append = TRUE)
+    }
+    #exogenous factors
+    if(FALSE){
+    } else{
+    write(c(
+     '      exogenous = NULL)'),
+     runmodel_fileConn, append = TRUE)
+    }
+   #write this gimme code to file. Will either run sequentially or parallelized
+
+  }
+  #close parallel loop if necessary
+  if (numcores > 1){
+    write(c(
+      '}'),
+      runmodel_fileConn, append = TRUE)
+  }
+
+}
+
