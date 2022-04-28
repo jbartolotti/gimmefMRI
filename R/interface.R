@@ -23,3 +23,4 @@ gimmefMRI <- function(
 }
 
 
+#gimmefMRI(datadir = '~/R-Drive/Bartolotti_J/gimme_toolkit/demodat', savedir = '~/R-Drive/Bartolotti_J/gimme_toolkit/models')

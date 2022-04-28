@@ -68,8 +68,12 @@ writeGimmeCode <- function(savedir, mm, maxcores = .5){
   runmodel_fileConn <- file(file.path(savedir,'runmodels.R'),'wb')
   nummodels <- dim(mm$model_spec)[1]
 
-  write('modelspecs <- list()',runmodel_fileConn, append = TRUE)
-  write('cs_subgroups <- list()',runmodel_fileConn, append = TRUE)
+  write(c(
+    'library(gimme)',
+    'library(doParallel)',
+    'modelspecs <- list()',
+    'cs_subgroups <- list()'),
+    runmodel_fileConn, append = TRUE)
 
   for(mi in 1:nummodels){
     thismod <- mm$model_spec[mi,]
@@ -101,16 +105,17 @@ writeGimmeCode <- function(savedir, mm, maxcores = .5){
 
     write(c(
       sprintf("modelspecs[[%s]] <- list(",mi),
-      sprintf("      data = \'%s\'",input_basedir),
+      sprintf("      data = \'%s\',",input_basedir),
       sprintf("      out = \'%s\',",output_basedir),
       "      sep = \',\',",
       "      ar = TRUE,",
       "      plot = TRUE,",
+      "      header = TRUE,",
       sprintf("      groupcutoff = %s,",thismod$group_thresh),
       sprintf("      subgroup = %s,",dosubgroup),
       sprintf("      subcutoff = %s,",subcutoff),
-      sprintf("      confirm_subgroup = %s",cssubgroup_write),
-      "      paths = NULL",
+      sprintf("      confirm_subgroup = %s,",cssubgroup_write),
+      "      paths = NULL,",
       "      exogenous = NULL",
       ")"),
       runmodel_fileConn,append = TRUE)
@@ -131,6 +136,7 @@ writeGimmeCode <- function(savedir, mm, maxcores = .5){
       "      out = modelspecs[[i]]$out,",
       "      sep = modelspecs[[i]]$sep,",
       "      ar = modelspecs[[i]]$ar,",
+      "      header = modelspecs[[i]]$header,",
       "      plot = modelspecs[[i]]$plot,",
       "      groupcutoff = modelspecs[[i]]$groupcutoff,",
       "      subgroup = modelspecs[[i]]$subgroup,",
