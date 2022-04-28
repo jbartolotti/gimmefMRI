@@ -1,0 +1,9 @@
+grouplist <- c( 'proband','control' )
+groupnum_lookup <- list()
+index <- 0
+for(g in grouplist){index <- index+1; groupnum_lookup[g] = index}
+cs_subgroups = data.frame(filename = dir(//kumc.edu/data/Research/Hoglund/Bartolotti_J/gimme_toolkit/models/BGR_g75_sg75/input_files), groupnum = 0, stringsAsFactors = FALSE)
+cs_subgroups$filename = unlist(lapply(cs_subgroups$filename, function(x){gsub('.csv','',x)}))
+cs_subgroups$groupnum = unlist(lapply(cs_subgroups$filename, function(x){groupnum_lookup[[strsplit(x,'_')[[1]][1]]]}))
+8
+TRUE

@@ -10,3 +10,5 @@ LATER
 visualize distributions
 
 pretty figures
+
+maybe -- delete(or backup?) the model directory first, so that old result files don't get mistaken if running doesn't work (or model hasn't been run yet). Fn already removes the input_files directory beforehand.

@@ -16,7 +16,7 @@ gimmefMRI <- function(
   initializeGimmeFolders(savedir, mm)
 
   #Creates an .R file containing code to run all models in parallel
-#  writeGimmeCode(savedir, mm)
+  writeGimmeCode(savedir, mm)
 #  if(run_now){
 #    runGimme()
 #  }
