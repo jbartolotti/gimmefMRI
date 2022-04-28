@@ -100,7 +100,7 @@ writeGimmeCode <- function(savedir, mm, maxcores = .5){
         sprintf("cs_subgroups[[%s]]$groupnum <- unlist(lapply(cs_subgroups[[%s]]$filename, function(x){groupnum_lookup[[strsplit(x,\'_\')[[1]][1]]]}))",mi,mi)),
         runmodel_fileConn, append = TRUE
       )
-      cssubgroup_write <- "\'cs_subgroups[[i]]\'"
+      cssubgroup_write <- sprintf("cs_subgroups[[%s]]",mi)
     } else{cssubgroup_write <- 'NULL'}
 
     write(c(
