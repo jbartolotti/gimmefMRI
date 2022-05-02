@@ -14,3 +14,4 @@ cc200_Left_AntIntP,LAntIntP
 cc200_Left_M1Hand,LM1
 cc200_Left_SMA,LSMA
 cc200_Left_DLPFC,LDLPFC
+task_predictor,exo_task

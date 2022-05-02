@@ -1,3 +1,3 @@
-model_name,group_thresh,subgroup_thresh,network_name,censor_conditions,run,subselect,subgroup_names
-BGR_g50_sg50,0.5,0.5,cc200L_BGR,NA,Pulse20,sub_short,proband_control
-BGR_g75_sg75,0.75,0.75,cc200L_BGR,censor_task,Pulse20,sub_short,proband_control
+model_name,network_name,apriori_paths,exogenous_predictors,modulatory_predictors,run,censor_conditions,subselect,group_thresh,subgroups,subgroup_thresh,apriori_subgroups,subgroup_names
+BGR_g50_sg50,cc200L_BGR_task,NA,(task_predictor),(task_predictor*cc200L_BGR_task),Pulse20,NA,sub_short,0.5,TRUE,0.5,FALSE,NA
+BGR_g75_sg75,cc200L_BGR,(BGHAT_Right_Caudate<cc200_dACC)(BGHAT_Left_SMA<BGHAT_Right_Caudate),NA,NA,Pulse20,(task),sub_short,0.75,TRUE,0.75,TRUE,(proband)(control)
