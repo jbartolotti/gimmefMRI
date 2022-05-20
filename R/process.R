@@ -72,7 +72,9 @@ getTimecourse <- function(sublist, subdf, roi_list){
 
   filelocs <- list()
   for(s in sublist){
-      filelocs[[s]] <- getTimecourse_OneSub(...)
+      filelocs[[s]] <- getTimecourse_OneSub(xtc_fileConn, s, roi_list,
+                                            #subdir, roidir, timecoursedir,
+                                            ...)
   }
 
   #run the shell file
@@ -81,28 +83,43 @@ getTimecourse <- function(sublist, subdf, roi_list){
 
 }
 
-getTimecourse_OneSub <- function(... ,
-                                 sub_functional, sub_mask, roi_list){
+getTimecourse_OneSub <- function(fileConn, subname, roi_list,
+                                 subdir, roidir, timecoursedir,
+                                 sub_functional_filename, sub_mask_filename,
+                                 submaskdir = subdir,
+                                 subroi_dirname = 'subject_rois',
+                                 remove_subrois = FALSE
+                                 ){
   filelocs = list()
-  for(roi in roi_list){
-    filelocs[[roi]] <- getTimecourse_OneSub_OneROI(...)
+  for(roiname in roi_list$name){
+    roi_filename <- roi_list$filename[roi_list$name == roiname]
+    filelocs[[roi]] <- getTimecourse_OneSub_OneROI(fileConn, subname, roiname,
+                                                   subdir, roidir, timecoursedir,
+                                                   sub_functional_filename, sub_mask_filename, roi_filename,
+                                                   submaskdir = submaskdir, subroi_dirname = subroi_dirname, remove_subrois = remove_subrois)
   }
   return(filelocs)
 }
 
 getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
-                                        subdir, roidir,
+                                        subdir, roidir, timecoursedir,
                                         sub_functional_filename, sub_mask_filename, roi_filename,
                                         submaskdir = subdir, subroi_dirname = 'subject_rois', remove_subrois = FALSE){
   #resample the roi to the subjects functional
   subfunc_loc <-  file.path(subdir,sub_functional_filename)
-  roisub_loc <- file.path(subdir,subroi_dirname,sprintf('SUB_%s_ROI_%s'))
+  roisub_loc <- file.path(subdir,subroi_dirname,sprintf('SUB_%s_ROI_%s',subname,roiname))
+  dir.create(file.path(subdir, subroi_dirname), showWarnings = FALSE)
   roi_loc <- file.path(roidir, roi_filename)
   line_resample <- sprintf('3dresample -master %s -prefix %s -inset %s -overwrite',subfunc_loc, roisub_loc, roi_loc)
+
   #combine subroi with the subject mask
-     #3dcalc -a ROIA_SUB9999 -b SUB9999_MASK -exrp 'a*b' -nscale -overwrite -prefix ROIA_SUB9999
+  sub_mask_loc <- file.path(submaskdir, sub_mask_filename)
+  line_3dcalc <- sprintf("3dcalc -a %s -b %s -expr \'a*b\' -nscale -overwrite -prefix %s", roisub_loc, sub_mask_loc, roisub_loc)
+
   #save timecourse in this mask to text
-     #3dmaskave -mask ROIA_SUB9999 -quiet SUB9999_FUNC > ROIA_SUB999_TIMECOURSE.txt
+  timecourse_loc <- file.path(timecoursedir,  sprintf('SUB_%s_ROI_%s_timecourse.txt',subname,roiname))
+  line_3dmaskave <- sprintf("3dmaskave -mask %s -quiet %s > %s",roisub_loc, subfunc_loc, timecourse_loc)
+
   write(c(line_3dresample, line_3dcalc, line_3dmaskave), fileConn, append = TRUE)
   return(list(subfunc_loc = subfunc_loc, roisub_loc = roisub_loc, roi_loc = roi_loc))
 }
