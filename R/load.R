@@ -7,7 +7,12 @@ timecoursesToRdat <- function(timecourse_locations){
 
 }
 
-readModelInput <- function(file_timecourses, file_modelspec, file_lists, file_shortnames){
+readModelInput <- function(datadir, file_timecourses = NA, file_modelspec = NA, file_lists = NA, file_shortnames = NA){
+  if (is.na(file_timecourses)) {file_timecourses = file.path(datadir,'timecourses.csv')}
+  if (is.na(file_modelspec)) {file_modelspec = file.path(datadir,'model_spec.csv')}
+  if (is.na(file_lists)) {file_lists = file.path(datadir,'info_lists.csv')}
+  if (is.na(file_shortnames)) {file_shortnames = file.path(datadir,'shortnames.csv')}
+
   mm <- list()
   tc <- read.csv(file_timecourses)
   mspec <- read.csv(file_modelspec)
