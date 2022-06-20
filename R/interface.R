@@ -1,5 +1,13 @@
 #' @export
-gimmefMRI <- function(
+gimmefMRI <- function(){
+  myfile <- file.choose()
+  mm <- readXLSXinput(myfile)
+
+}
+
+
+#' @export
+gimmefMRIcustom <- function(
       datadir = 'C:/Users/j186b025/Documents/GitHub/jbartolotti/gimmefMRI/demodat',
       savedir = '//kumc.edu/data/Research/Hoglund/Bartolotti_J/gimme_toolkit/models',
       run_now = TRUE,
@@ -9,7 +17,7 @@ gimmefMRI <- function(
       shortnames_file = NA
       ){
 
-  mm <- readModelInput(datadir, timecourse_file, model_spec_file, info_lists_file, shortnames_file)
+  mm <- readCSVInput(datadir, timecourse_file, model_spec_file, info_lists_file, shortnames_file)
                  #timecourse = file.path(datadir,'timecourses.csv'),
                  #model_spec = file.path(datadir,'model_spec.csv'),
                  #info_lists = file.path(datadir,'info_lists.csv'),
@@ -42,7 +50,7 @@ gimmefMRI_figures <- function(modeldir = '//kumc.edu/data/Research/Hoglund/Barto
                               shortnames_file = NA
                               ){
 
-  mm <- readModelInput(datadir, timecourse_file, model_spec_file, info_lists_file, shortnames_file)
+  mm <- readCSVInput(datadir, timecourse_file, model_spec_file, info_lists_file, shortnames_file)
   network_name <- mm$model_spec[mm$model_spec$model_name == modelname,'network_name']
   nodes <- mm$lists[[network_name]]
   shortnodes <- applyShorten(nodes,mm$shortnames)
@@ -130,7 +138,7 @@ gimmefMRI_figures <- function(modeldir = '//kumc.edu/data/Research/Hoglund/Barto
 
   dir.create(savedir,showWarnings = FALSE)
   png(file.path(savedir, 'figure.png'), width = FIGWIDTH, height = FIGHEIGHT)
-  qgraph(ccmat[node_order,node_order],
+  qgraph::qgraph(ccmat[node_order,node_order],
          layout = LAYOUT,
          shape = SHAPE,
          border.width = NODE_WIDTH,
