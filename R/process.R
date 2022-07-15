@@ -63,18 +63,69 @@ initializeGimmeFolders <- function(savedir,mm){
 
 }
 
+doreplace <- function(line, pattern, target){
+  if(!is.na(line[pattern])){
+    line[target] <- sub(paste0('{',pattern,'}'),line[pattern],line[target], fixed = TRUE)
+  }
+  return(line)
+  }
 
-getTimecourse <- function(sublist, subdf, roi_list){
+getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = 'gui', sub_list = 'all', roi_list = 'all'){
+
+  if(config_file=='gui'){
+    myfile <- file.choose()
+  } else{
+    myfile <- config_file
+  }
+  # Read config file and replace search patterns e.g. {BASE_DIR} with appropriate columns
+  config <- read.csv(myfile)
+  for(linenum in 1:dim(config)[1]){
+    line <- config[linenum,]
+    line <- doreplace(line,'BASE_DIR','DATA_DIR')
+    line <- doreplace(line,'GROUP','DATA_DIR')
+    line <- doreplace(line,'ID','DATA_DIR')
+    line <- doreplace(line,'GROUP','ROI_FILENAME')
+    line <- doreplace(line,'ID','ROI_FILENAME')
+    line <- doreplace(line,'GROUP','FUNCTIONAL_FILENAME')
+    line <- doreplace(line,'ID','FUNCTIONAL_FILENAME')
+    line <- doreplace(line,'GROUP','MASK_FILENAME')
+    line <- doreplace(line,'ID','MASK_FILENAME')
+    line <- doreplace(line,'DATA_DIR','SUB_ROI_DIR')
+    line <- doreplace(line,'DATA_DIR','TIMECOURSE_DIR')
+
+    config[linenum,] <- line
+  }
+
+  # process sub_list and roi_list to ensure requested entries are present in the config file
+  config_sub_list <- config$ID[config$TYPE == 'sub']
+  config_roi_list <- config$ID[config$TYPE == 'roi']
+
+  if(length(sub_list) == 1 && sub_list == 'all'){sub_list <- config_sub_list}
+  if(length(roi_list) == 1 && roi_list == 'all'){roi_list <- config_roi_list}
+
+  if(any(! sub_list %in% config_sub_list)){
+    message(sprintf('WARNING: These requested subjects were not found in the config file: %s', paste(sub_list[! sub_list %in% config_sub_list],collapse=', ')))
+  }
+  if(any(! roi_list %in% config_roi_list)){
+    message(sprintf('WARNING: These requested ROIs were not found in the config file: %s', paste(roi_list[! roi_list %in% config_roi_list],collapse=', ')))
+  }
+
 
   #write big shell file that will extract timecourses from all subjects from all rois to individual tc files
-  extract_timecourse_filename <- file.path('...')
-  xtc_fileConn <- file(extract_timecourse_filename,'wb')
+  xtc_fileConn <- file(write_file,'wb')
 
   filelocs <- list()
-  for(s in sublist){
-      filelocs[[s]] <- getTimecourse_OneSub(xtc_fileConn, s, roi_list,
-                                            #subdir, roidir, timecoursedir,
-                                            ...)
+  for(s in sub_list){
+    line <- config[config$ID == s,]
+      filelocs[[s]] <- getTimecourse_OneSub(xtc_fileConn, s, config[config$ID %in% roi_list,],
+                                            line$DATA_DIR,
+                                            line$TIMECOURSE_DIR,
+                                            line$FUNCTIONAL_FILENAME,
+                                            line$MASK_FILENAME,
+                                            submaskdir = line$DATA_DIR,
+                                            subroi_dir = line$SUB_ROI_DIR,
+                                            remove_subrois = FALSE
+                                            )
   }
 
   #run the shell file
@@ -83,34 +134,42 @@ getTimecourse <- function(sublist, subdf, roi_list){
 
 }
 
-getTimecourse_OneSub <- function(fileConn, subname, roi_list,
-                                 subdir, roidir, timecoursedir,
-                                 sub_functional_filename, sub_mask_filename,
+getTimecourse_OneSub <- function(fileConn, subname, roi_df,
+                                 subdir,
+                                 timecoursedir,
+                                 sub_functional_filename,
+                                 sub_mask_filename,
                                  submaskdir = subdir,
-                                 subroi_dirname = 'subject_rois',
+                                 subroi_dir = file.path(subdir,'subject_rois'),
                                  remove_subrois = FALSE
                                  ){
   filelocs = list()
-  for(roiname in roi_list$name){
-    roi_filename <- roi_list$filename[roi_list$name == roiname]
-    filelocs[[roi]] <- getTimecourse_OneSub_OneROI(fileConn, subname, roiname,
-                                                   subdir, roidir, timecoursedir,
-                                                   sub_functional_filename, sub_mask_filename, roi_filename,
-                                                   submaskdir = submaskdir, subroi_dirname = subroi_dirname, remove_subrois = remove_subrois)
+  for(roiname in roi_df$ID){
+    line <- roi_df[roi_df$ID == roiname,]
+    filelocs[[roiname]] <- getTimecourse_OneSub_OneROI(fileConn, subname, roiname,
+                                                   subdir,
+                                                   line$DATA_DIR,
+                                                   timecoursedir,
+                                                   sub_functional_filename,
+                                                   sub_mask_filename,
+                                                   line$ROI_FILENAME,
+                                                   submaskdir = submaskdir, subroi_dir = subroi_dir, remove_subrois = remove_subrois)
   }
   return(filelocs)
 }
 
 getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
-                                        subdir, roidir, timecoursedir,
+                                        subdir,
+                                        roidir,
+                                        timecoursedir,
                                         sub_functional_filename, sub_mask_filename, roi_filename,
-                                        submaskdir = subdir, subroi_dirname = 'subject_rois', remove_subrois = FALSE){
+                                        submaskdir = subdir, subroi_dir = file.path(subdir,'subject_rois'), remove_subrois = FALSE){
   #resample the roi to the subjects functional
   subfunc_loc <-  file.path(subdir,sub_functional_filename)
-  roisub_loc <- file.path(subdir,subroi_dirname,sprintf('SUB_%s_ROI_%s',subname,roiname))
-  dir.create(file.path(subdir, subroi_dirname), showWarnings = FALSE)
+  roisub_loc <- file.path(subroi_dir,sprintf('SUB_%s_ROI_%s',subname,roiname))
+  dir.create(file.path(subroi_dir), showWarnings = FALSE)
   roi_loc <- file.path(roidir, roi_filename)
-  line_resample <- sprintf('3dresample -master %s -prefix %s -inset %s -overwrite',subfunc_loc, roisub_loc, roi_loc)
+  line_3dresample <- sprintf('3dresample -master %s -prefix %s -inset %s -overwrite',subfunc_loc, roisub_loc, roi_loc)
 
   #combine subroi with the subject mask
   sub_mask_loc <- file.path(submaskdir, sub_mask_filename)

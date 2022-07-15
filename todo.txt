@@ -1,12 +1,17 @@
 make the parallel packages not required but recommended. If they are not present, fallback to numcores always = 1.
 
 
-make timecourses from brains
+--make timecourses from brains
 
+--edit gimmefMRI() to write/run rcode for models, and to write/run rcode for figures
+
+
+Figures:
+--expose config options.
+--option to print command to text instead of running, to allow easy user modification
 
 LATER
 visualize distributions
 
-pretty figures
 
 maybe -- delete(or backup?) the model directory first, so that old result files don't get mistaken if running doesn't work (or model hasn't been run yet). Fn already removes the input_files directory beforehand.
