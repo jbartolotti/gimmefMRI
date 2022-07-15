@@ -70,6 +70,7 @@ doreplace <- function(line, pattern, target){
   return(line)
   }
 
+#' @export
 getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = 'gui', sub_list = 'all', roi_list = 'all'){
 
   if(config_file=='gui'){
