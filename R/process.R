@@ -63,9 +63,11 @@ initializeGimmeFolders <- function(savedir,mm){
 
 }
 
-doreplace <- function(line, pattern, target){
-  if(!is.na(line[pattern])){
-    line[target] <- sub(paste0('{',pattern,'}'),line[pattern],line[target], fixed = TRUE)
+doreplace <- function(line, pattern_list, target){
+  for(pattern in pattern_list){
+    if(!is.na(line[pattern])){
+      line[target] <- sub(paste0('{',pattern,'}'),line[pattern],line[target], fixed = TRUE)
+    }
   }
   return(line)
   }
@@ -82,17 +84,13 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
   config <- read.csv(myfile)
   for(linenum in 1:dim(config)[1]){
     line <- config[linenum,]
-    line <- doreplace(line,'BASE_DIR','DATA_DIR')
-    line <- doreplace(line,'GROUP','DATA_DIR')
-    line <- doreplace(line,'ID','DATA_DIR')
-    line <- doreplace(line,'GROUP','ROI_FILENAME')
-    line <- doreplace(line,'ID','ROI_FILENAME')
-    line <- doreplace(line,'GROUP','FUNCTIONAL_FILENAME')
-    line <- doreplace(line,'ID','FUNCTIONAL_FILENAME')
-    line <- doreplace(line,'GROUP','MASK_FILENAME')
-    line <- doreplace(line,'ID','MASK_FILENAME')
-    line <- doreplace(line,'DATA_DIR','SUB_ROI_DIR')
-    line <- doreplace(line,'DATA_DIR','TIMECOURSE_DIR')
+    line <- doreplace(line,c('BASE_DIR','GROUP','ID'),'DATA_DIR')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'ROI_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'FUNCTIONAL_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'MASK_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'CENSOR_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'SUB_ROI_DIR')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'TIMECOURSE_DIR')
 
     config[linenum,] <- line
   }
@@ -128,12 +126,49 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
                                             remove_subrois = FALSE
                                             )
   }
-
-  #run the shell file
-
-  #read in all those tc files and save them to the big timecourses.csv to use as input to gimmefMRI()
-
+  close(xtc_fileConn)
+  return(list(filelocs = filelocs, config = config))
 }
+
+genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
+    allrois <- as.character()
+    for(s in names(filelocs)){
+      allrois <- c(allrois,names(filelocs[[s]]))
+    }
+    allrois <- unique(allrois)
+
+    eachdf <- list()
+
+    for(s in names(filelocs)){
+      if( !(typeof(config)=='logical' && is.na(config)) ){
+        group <- config[config$ID == s,'GROUP']
+        thisrun <- config[config$ID == s,'RUN']
+        thiscensor <- config[config$ID == s,'CENSOR_FILENAME']
+      } else{
+        group <- NA
+        thisrun <- NA
+        thiscensor <- NA
+      }
+      for(r in names(filelocs[[s]])){
+        thistc_filename <- filelocs[[s]][[r]]$timecourse_loc
+        thistc <- read.csv(thistc_filename,header = FALSE)
+
+        # initialize this subject's timecourse df if it doesn't exist
+        if(! s %in% names(eachdf)){
+          tclength <- dim(thistc)[1]
+          eachdf[[s]]  <- data.frame(slicenum = 1:tclength, time = rep(NA,1,tclength), condition = rep(NA,1,tclength), censor = rep(0,1,tclength), subnum = rep(s,1,tclength), subgroup = rep(group,1,tclength), run = rep(thisrun,1,tclength), stringsAsFactors = FALSE)
+          eachdf[[s]][,allrois] <- NA
+          if(!is.na(thiscensor)){
+            cens <- read.csv(thiscensor, header = FALSE)
+            eachdf[[s]]$censor <- cens[,1]
+          }
+        }
+        eachdf[[s]][,r] <- thistc
+      }
+    }
+    alldf <- do.call('rbind',eachdf)
+    write.csv(alldf, file = tcfilename,row.names = FALSE)
+  }
 
 getTimecourse_OneSub <- function(fileConn, subname, roi_df,
                                  subdir,
@@ -163,17 +198,18 @@ getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
                                         subdir,
                                         roidir,
                                         timecoursedir,
-                                        sub_functional_filename, sub_mask_filename, roi_filename,
+                                        subfunc_loc, sub_mask_loc, roi_loc,
                                         submaskdir = subdir, subroi_dir = file.path(subdir,'subject_rois'), remove_subrois = FALSE){
   #resample the roi to the subjects functional
-  subfunc_loc <-  file.path(subdir,sub_functional_filename)
-  roisub_loc <- file.path(subroi_dir,sprintf('SUB_%s_ROI_%s',subname,roiname))
+#  subfunc_loc <-  file.path(subdir,sub_functional_filename)
+  roisub_loc <- file.path(subroi_dir,sprintf('SUB_%s_ROI_%s+tlrc',subname,roiname))
   dir.create(file.path(subroi_dir), showWarnings = FALSE)
-  roi_loc <- file.path(roidir, roi_filename)
+  dir.create(file.path(timecoursedir), showWarnings = FALSE)
+#  roi_loc <- file.path(roidir, roi_filename)
   line_3dresample <- sprintf('3dresample -master %s -prefix %s -inset %s -overwrite',subfunc_loc, roisub_loc, roi_loc)
 
   #combine subroi with the subject mask
-  sub_mask_loc <- file.path(submaskdir, sub_mask_filename)
+#  sub_mask_loc <- file.path(submaskdir, sub_mask_filename)
   line_3dcalc <- sprintf("3dcalc -a %s -b %s -expr \'a*b\' -nscale -overwrite -prefix %s", roisub_loc, sub_mask_loc, roisub_loc)
 
   #save timecourse in this mask to text
@@ -181,5 +217,5 @@ getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
   line_3dmaskave <- sprintf("3dmaskave -mask %s -quiet %s > %s",roisub_loc, subfunc_loc, timecourse_loc)
 
   write(c(line_3dresample, line_3dcalc, line_3dmaskave), fileConn, append = TRUE)
-  return(list(subfunc_loc = subfunc_loc, roisub_loc = roisub_loc, roi_loc = roi_loc))
+  return(list(subfunc_loc = subfunc_loc, roisub_loc = roisub_loc, roi_loc = roi_loc, timecourse_loc = timecourse_loc))
 }

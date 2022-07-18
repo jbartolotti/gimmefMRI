@@ -1,3 +1,32 @@
+
+#' @export
+getTC <- function(
+    write_file = 'extract_timecourses.sh',
+    config_file = 'gui',
+    sub_list = 'all',
+    roi_list = 'all',
+    write_sh = TRUE,
+    run_now = TRUE,
+    write_csv = TRUE,
+    filelocs = NA,
+    config = NA
+    ){
+
+  if(write_sh){
+    #write afni code to extract timecourses for each subject from each roi
+    returndat <- getTimecourse(write_file = write_file, config_file = config_file, sub_list = sub_list, roi_list = roi_list)
+  }
+  if(run_now){
+    #run the shell file
+    system(sprintf('Rscript %s',write_file))
+  }
+  if(write_csv){
+    #read in all those tc files and save them to the big timecourses.csv to use as input to gimmefMRI()
+    genTimecoursesCSV('timecourses.csv', returndat$filelocs, returndat$config)
+  }
+}
+
+
 #' @export
 gimmefMRI <- function(){
   myfile <- file.choose()
