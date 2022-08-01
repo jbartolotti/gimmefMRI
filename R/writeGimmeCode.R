@@ -1,11 +1,11 @@
 
-writeGimmeCode <- function(mm, maxcores = .5){
+writeGimmeCode <- function(mm, maxcores = 1){
 
   #Open file and write header
   dir.create(mm$cntrl$script_save_directory, showWarnings = FALSE)
   model_filename <- file.path(mm$cntrl$script_save_directory,'run_models.R')
   runmodel_fileConn <- file(model_filename,'wb')
-  WGC_header(runmodel_fileConn)
+  WGC_header(runmodel_fileConn, maxcores)
 
   #Write model specifications for each model
   nummodels <- dim(mm$model_spec)[1]
@@ -136,10 +136,14 @@ WGC_paths <- function(thismod, mm){
   return(paths_write)
 }
 
-WGC_header <- function(runmodel_fileConn){
+WGC_header <- function(runmodel_fileConn, maxcores){
+  if(useCores(maxcores)>1){
+    write(c(
+    'library(doParallel)'),
+    runmodel_fileConn, append = TRUE)
+  }
   write(c(
     'library(gimme)',
-    'library(doParallel)',
     'modelspecs <- list()',
     'cs_subgroups <- list()'),
     runmodel_fileConn, append = TRUE)
@@ -148,7 +152,7 @@ WGC_header <- function(runmodel_fileConn){
 WGC_parallel_header <- function(runmodel_fileConn, maxcores, nummodels) {
   numcores <- useCores(maxcores)
   if (numcores == 1){
-    fortext <- 'i <- 1'
+    fortext <- sprintf('for(i in 1:%s){',nummodels)
   }else{
     fortext <- c(sprintf('registerDoParallel(%s)',numcores),sprintf('foreach(i=1:%s) %%dopar%% {',nummodels))
   }
@@ -157,6 +161,10 @@ WGC_parallel_header <- function(runmodel_fileConn, maxcores, nummodels) {
 
 WGC_parallel_close <- function(runmodel_fileConn, maxcores){
   if (useCores(maxcores) > 1){
+    write(c(
+      '}'),
+      runmodel_fileConn, append = TRUE)
+  } else if(useCores(maxcores) == 1){
     write(c(
       '}'),
       runmodel_fileConn, append = TRUE)
