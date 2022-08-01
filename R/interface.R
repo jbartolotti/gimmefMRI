@@ -70,14 +70,15 @@ runGimmeSteps <- function(mm){
   if(mm$cntrl$run_model_code){
     if(length(runmodel_filename) == 0){
       runmodel_filename <- file.path(mm$cntrl$script_save_directory, 'run_models.R')
-      if(file.exists(runmodel_filename)){
-        message('Running GIMME model code now.')
-        source(runmodel_filename, print.eval = TRUE)
-        #system(sprintf('Rscript %s',runmodel_filename))
-      } else{
-        warning('WARNING: file %n not found. Skipped running models.', runmodel_filename)
-      }
     }
+    if(file.exists(runmodel_filename)){
+      message('Running GIMME model code now.')
+      source(runmodel_filename, print.eval = TRUE)
+      #system(sprintf('Rscript %s',runmodel_filename))
+    } else{
+      warning('WARNING: file %n not found. Skipped running models.', runmodel_filename)
+    }
+
   }
 
   if(mm$cntrl$generate_figure_code){
