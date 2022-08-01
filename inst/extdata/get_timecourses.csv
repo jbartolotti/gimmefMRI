@@ -1,0 +1,5 @@
+TYPE,ID,GROUP,RUN,BASE_DIR,DATA_DIR,ROI_FILENAME,FUNCTIONAL_FILENAME,MASK_FILENAME,CENSOR_FILENAME,SUB_ROI_DIR,TIMECOURSE_DIR
+sub,1,clinical,task1,/my/project/directory,{BASE_DIR}/data/group_{GROUP}/{ID},NA,{DATA_DIR}/pb02.{ID}.r01.volreg+tlrc.BRIK,{DATA_DIR}/full_mask.{ID}+tlrc.BRIK,{DATA_DIR}/motion_{ID}_censor.1D,{DATA_DIR}/subject_rois,{DATA_DIR}/timecourses
+sub,2,control,task1,/my/project/directory,{BASE_DIR}/data/group_{GROUP}/{ID},NA,{DATA_DIR}/pb02.{ID}.r01.volreg+tlrc.BRIK,{DATA_DIR}/full_mask.{ID}+tlrc.BRIK,{DATA_DIR}/motion_{ID}_censor.1D,{DATA_DIR}/subject_rois,{DATA_DIR}/timecourses
+roi,Left_Putamen,NA,NA,/my/project/directory,{BASE_DIR}/resources/ROIs,{DATA_DIR}/{ID}.nii,NA,NA,NA,NA,NA
+roi,Right_Putamen,NA,NA,/my/project/directory,{BASE_DIR}/resources/ROIs,{DATA_DIR}/{ID}.nii,NA,NA,NA,NA,NA

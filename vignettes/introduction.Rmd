@@ -1,0 +1,53 @@
+---
+title: "introduction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(gimmefMRI)
+```
+
+    # Example Model
+install the ""gimmefMRI"" package in R using the following two commands:"
+install.packages('devtools')
+devtools::install_github('jbartolotti/gimmefMRI')
+
+To run, load the gimmefMRI library, and run the program using the following two commands:
+library('gimmefMRI')
+gimmefMRI()
+You will be prompted to select a file. Select a configuration excel file, and the program will run.
+
+For an example with sample data, run 
+gimmefMRI('example')
+
+    # Configuration
+All data to be analyzed is located in the TIMECOURSES sheet. This contains a single column for each ROI or other predictor (e.g., task) of interest. Models may use all or a subset of these predictors. Additional columns specify Subject, Subgroup, Run, Condition, Slice Number, and Time. The Censor column can be used to exclude single rows from the model (1 = exclude). 
+
+The CONTROL sheet specifies where data is stored and results should be saved, and which parts of the analysis to run.
+
+The MODELS sheet contains any number of columns, each one specifying a single GIMME model to run.
+
+The LISTS sheet contains lists of nodes or subjects to include in a GIMME model, and is referred to within the MODELS configuration.
+
+The ABBREVIATIONS sheet provides a mapping between long names and shortnames for network nodes. Longnames refer to column names in TIMECOURSES that are specified in the LISTS sheet. Shortnames are used in figures.
+
+    ## Runtime options
+gimmefMRI('load', 
+  run = c(generate_models = TRUE, run_models = TRUE, generate_figures = TRUE, run_figures = TRUE),
+  models = c('model1','model2')
+  )
+
+Use the `run` option to specify steps to run or skip. Overrides values in the CONTROL sheet.
+Use the `models` option to specify models to run for each step. Default: run all models listed in the MODELS sheet.
+

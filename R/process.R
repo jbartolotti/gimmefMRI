@@ -18,9 +18,12 @@
 #roinames
   #columns: longroi, shortroi
 
-initializeGimmeFolders <- function(savedir,mm){
-  for (i in 1:dim(mm$model_spec)[1] ){
-    thismod <- mm$model_spec[i,]
+initializeGimmeFolders <- function(mm){
+
+  savedir <- mm$cntrl$model_save_directory
+  dir.create(savedir, showWarnings = FALSE)
+  for (modname in mm$model_spec$model_name ){
+    thismod <- mm$model_spec[mm$model_spec$model_name == modname,]
     #make target directory
     dir.create(file.path(savedir,thismod$model_name),showWarnings = FALSE)
     unlink(file.path(savedir,thismod$model_name,'input_files'),recursive = TRUE)
@@ -70,7 +73,7 @@ doreplace <- function(line, pattern_list, target){
     }
   }
   return(line)
-  }
+}
 
 #' @export
 getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = 'gui', sub_list = 'all', roi_list = 'all'){

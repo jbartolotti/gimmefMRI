@@ -1,8 +1,9 @@
 
-writeGimmeCode <- function(savedir, mm, maxcores = .5){
+writeGimmeCode <- function(mm, maxcores = .5){
 
   #Open file and write header
-  model_filename <- file.path(savedir,'runmodels.R')
+  dir.create(mm$cntrl$script_save_directory, showWarnings = FALSE)
+  model_filename <- file.path(mm$cntrl$script_save_directory,'run_models.R')
   runmodel_fileConn <- file(model_filename,'wb')
   WGC_header(runmodel_fileConn)
 
@@ -10,13 +11,17 @@ writeGimmeCode <- function(savedir, mm, maxcores = .5){
   nummodels <- dim(mm$model_spec)[1]
   for(mi in 1:nummodels){
     thismod <- mm$model_spec[mi,]
-    input_basedir = file.path(savedir,thismod$model_name,'input_files')
-    output_basedir = file.path(savedir,thismod$model_name)
+    input_basedir = file.path(mm$cntrl$model_save_directory, thismod$model_name, 'input_files')
+    output_basedir = file.path(mm$cntrl$model_save_directory, thismod$model_name)
 
     #Set subgroup variables, and write confirmatory_subgroup definitions to file, if applicable
     if(thismod$subgroups){
       subcutoff <- thismod$subgroup_thresh
-      cssubgroup_write <- WGC_subgroup(runmodel_fileConn, thismod, mm, input_basedir)
+      if(!(is.na(thismod$subgroup_names) || thismod$subgroup_names %in% c('NA','na','n/a','N/A'))){
+        cssubgroup_write <- WGC_subgroup(runmodel_fileConn, mi, thismod, mm, input_basedir)
+      } else{
+        cssubgroup_write <- 'NULL'
+      }
     } else{
       subcutoff <- 'NULL'
       cssubgroup_write <- 'NULL'
@@ -41,7 +46,7 @@ writeGimmeCode <- function(savedir, mm, maxcores = .5){
 
   #Write gimme code to file, to makeuse of modelspecs within parallelization loop
   write(c(
-    "  gimme(data = modelspecs[[i]]$data,",
+    "  gimme::gimme(data = modelspecs[[i]]$data,",
     "      out = modelspecs[[i]]$out,",
     "      sep = modelspecs[[i]]$sep,",
     "      ar = modelspecs[[i]]$ar,",
@@ -65,7 +70,7 @@ writeGimmeCode <- function(savedir, mm, maxcores = .5){
 
 WGC_modulatory <- function(thismod,mm){
   modu <- thismod$modulatory_predictors
-  if (!is.na(modu) && length(modu)>0){
+  if (!(is.na(modu) || modu %in% c('NA','na','n/a','N/A')) && length(modu)>0){
     all_mods <- as.character()
     modulist <- strsplit(gsub('[(]','',modu),')')[[1]]
     for (amod in modulist){
@@ -92,7 +97,7 @@ WGC_modulatory <- function(thismod,mm){
 
 WGC_exogenous <- function(thismod,mm){
   exo <- thismod$exogenous_predictors
-  if (!is.na(exo) && length(exo)>0){
+  if (!(is.na(exo) || exo %in% c('NA','na','n/a','N/A'))  && length(exo)>0){
     exolist <- strsplit(gsub('[(]','',exo),')')[[1]]
     shorten_exolist <- applyShorten(exolist,mm$shortnames)
     exo_write <- sprintf('c(%s)',paste(sprintf("\'%s\'",shorten_exolist),collapse = ','))
@@ -101,7 +106,7 @@ WGC_exogenous <- function(thismod,mm){
 }
 
 WGC_paths <- function(thismod, mm){
-  if (!is.na(thismod$apriori_paths) && length(thismod$apriori_paths)>0){
+  if (!(is.na(thismod$apriori_paths) || thismod$apriori_paths %in% c('NA','na','n/a','N/A')) && length(thismod$apriori_paths)>0){
     paths <- as.character()
     pathlist <- strsplit(gsub('[(]','',thismod$apriori_paths),')')[[1]]
     L2R <- grep('>',pathlist)
@@ -158,7 +163,7 @@ WGC_parallel_close <- function(runmodel_fileConn, maxcores){
   }
 }
 
-WGC_subgroup <- function(runmodel_fileConn, thismod, mm, input_basedir){
+WGC_subgroup <- function(runmodel_fileConn, mi, thismod, mm, input_basedir){
   #write code to generate cs_subgroup dataframe from filelist to the .R file
   if(!is.na(thismod$subgroup_names) && length(thismod$subgroup_names)>0){
 

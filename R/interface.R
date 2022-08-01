@@ -1,3 +1,12 @@
+#' @export
+gimmefMRI_templates <- function(writedir = getwd()){
+  file.copy(
+    system.file('extdata','get_timecourses.csv', package = 'gimmefMRI'),
+    file.path(writedir,'get_timecourses.csv'))
+  file.copy(
+    system.file('extdata','DemoGIMME.xlsx', package = 'gimmefMRI'),
+    file.path(writedir,'DemoGIMME.xlsx'))
+  }
 
 #' @export
 getTC <- function(
@@ -5,35 +14,83 @@ getTC <- function(
     config_file = 'gui',
     sub_list = 'all',
     roi_list = 'all',
-    write_sh = TRUE,
-    run_now = TRUE,
-    write_csv = TRUE,
+    run = c('generate_timecourse_code','run_timecourse_code','run_timecourse_csv'),
     filelocs = NA,
     config = NA
     ){
 
-  if(write_sh){
+  if('generate_timecourse_code' %in% run){
     #write afni code to extract timecourses for each subject from each roi
     returndat <- getTimecourse(write_file = write_file, config_file = config_file, sub_list = sub_list, roi_list = roi_list)
   }
-  if(run_now){
+  if('run_timecourse_code' %in% run){
     #run the shell file
     system(sprintf('Rscript %s',write_file))
   }
-  if(write_csv){
+  if('run_timecourse_csv' %in% run){
     #read in all those tc files and save them to the big timecourses.csv to use as input to gimmefMRI()
     genTimecoursesCSV('timecourses.csv', returndat$filelocs, returndat$config)
   }
 }
 
-
 #' @export
-gimmefMRI <- function(){
-  myfile <- file.choose()
-  mm <- readXLSXinput(myfile)
+gimmefMRI <- function(mode = 'interactive', run = 'use_config', models = 'use_config'){
+  sinfo <- Sys.info()
+  if(mode == 'example' || mode == 'demo'){
+      myfile <- system.file('extdata','DemoGIMME.xlsx', package = 'gimmefMRI')
+      myfile_dir <- getwd()
+  } else if(mode == 'interactive') {
+    if(sinfo[['sysname']] == 'Linux'){
+      myfile <- my.file.browse()
+    } else {
+      myfile <- file.choose()
+    }
+    myfile_dir <- paste(strsplit(myfile,'/')[[1]][1:(length(strsplit(myfile,'/')[[1]])-1)],collapse = '/')
+  }
+
+  mm <- readXLSXinput(myfile,myfile_dir)
+
+  mm <- applyCustomSettings(mm,run,models)
+
+  mm <- runGimmeSteps(mm)
 
 }
 
+runGimmeSteps <- function(mm){
+  runmodel_filename = as.character()
+  runfigure_filename = as.character()
+
+  if(mm$cntrl$generate_model_code){
+    initializeGimmeFolders(mm)
+    runmodel_filename <- writeGimmeCode(mm)
+    message(sprintf('GIMME R code written to %s.',
+                    file.path(mm$cntrl$model_script_directory,runmodel_filename)))
+  }
+
+  if(mm$cntrl$run_model_code){
+    if(length(runmodel_filename) == 0){
+      runmodel_filename <- file.path(mm$cntrl$script_save_directory, 'run_models.R')
+      if(file.exists(runmodel_filename)){
+        message('Running GIMME model code now.')
+        source(runmodel_filename, print.eval = TRUE)
+        #system(sprintf('Rscript %s',runmodel_filename))
+      } else{
+        warning('WARNING: file %n not found. Skipped running models.', runmodel_filename)
+      }
+    }
+  }
+
+  if(mm$cntrl$generate_figure_code){
+    message('generate figure code not implemented yet. ')
+
+  }
+  if(mm$cntrl$run_figure_code){
+    gimmefMRI_figures(mm)
+
+  }
+
+
+  }
 
 #' @export
 gimmefMRIcustom <- function(
@@ -68,7 +125,7 @@ gimmefMRIcustom <- function(
 
 }
 
-gimmefMRI_figures <- function(modeldir = '//kumc.edu/data/Research/Hoglund/Bartolotti_J/gimme_toolkit/models/BGR_g50_sg50',
+gimmefMRI_figures_old <- function(modeldir = '//kumc.edu/data/Research/Hoglund/Bartolotti_J/gimme_toolkit/models/BGR_g50_sg50',
                               savedir = '//kumc.edu/data/Research/Hoglund/Bartolotti_J/gimme_toolkit/models/BGR_g50_sg50/figures',
                               modelname = 'BGR_g50_sg50',
 

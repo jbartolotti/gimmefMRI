@@ -1,6 +1,6 @@
 Package: gimmefMRI
 Title: Wrapper for GIMME Specialized for fMRI
-Version: 0.0.0.9000
+Version: 0.0.0.9
 Authors@R: 
     person("James", "Bartolotti",, "jamesbartolotti@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
@@ -12,4 +12,10 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Imports:
     gimme,
-    doParallel
+    doParallel,
+    readxl,
+    qgraph
+Suggests: 
+    rmarkdown,
+    knitr
+VignetteBuilder: knitr
