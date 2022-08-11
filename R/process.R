@@ -79,7 +79,11 @@ doreplace <- function(line, pattern_list, target){
 getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = 'gui', sub_list = 'all', roi_list = 'all'){
 
   if(config_file=='gui'){
-    myfile <- file.choose()
+    if(Sys.info()[['sysname']] == 'Linux'){
+      myfile <- my.file.browse()
+    } else {
+      myfile <- file.choose()
+    }
   } else{
     myfile <- config_file
   }
@@ -87,13 +91,13 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
   config <- read.csv(myfile)
   for(linenum in 1:dim(config)[1]){
     line <- config[linenum,]
-    line <- doreplace(line,c('BASE_DIR','GROUP','ID'),'DATA_DIR')
-    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'ROI_FILENAME')
-    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'FUNCTIONAL_FILENAME')
-    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'MASK_FILENAME')
-    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'CENSOR_FILENAME')
-    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'SUB_ROI_DIR')
-    line <- doreplace(line,c('DATA_DIR','GROUP','ID'),'TIMECOURSE_DIR')
+    line <- doreplace(line,c('BASE_DIR','GROUP','ID','RUN'),'DATA_DIR')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'ROI_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'FUNCTIONAL_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'MASK_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'CENSOR_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'SUB_ROI_DIR')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'TIMECOURSE_DIR')
 
     config[linenum,] <- line
   }
@@ -114,7 +118,11 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
 
 
   #write big shell file that will extract timecourses from all subjects from all rois to individual tc files
-  xtc_fileConn <- file(write_file,'wb')
+  if(is.na(write_file)){
+    xtc_fileConn <- NA}
+  else {
+      xtc_fileConn <- file(write_file,'wb')
+  }
 
   filelocs <- list()
   for(s in sub_list){
@@ -129,10 +137,33 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
                                             remove_subrois = FALSE
                                             )
   }
-  close(xtc_fileConn)
+  if(!is.na(xtc_fileConn)){close(xtc_fileConn)}
   return(list(filelocs = filelocs, config = config))
 }
 
+genTimecoursesCSV_config <- function(tcfilename, config = 'gui'){
+  if(config_file=='gui'){
+    myfile <- file.choose()
+  } else{
+    myfile <- config_file
+  }
+  # Read config file and replace search patterns e.g. {BASE_DIR} with appropriate columns
+  config <- read.csv(myfile)
+  for(linenum in 1:dim(config)[1]){
+    line <- config[linenum,]
+    line <- doreplace(line,c('BASE_DIR','GROUP','ID','RUN'),'DATA_DIR')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'ROI_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'FUNCTIONAL_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'MASK_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'CENSOR_FILENAME')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'SUB_ROI_DIR')
+    line <- doreplace(line,c('DATA_DIR','GROUP','ID','RUN'),'TIMECOURSE_DIR')
+
+    config[linenum,] <- line
+  }
+
+
+}
 genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
     allrois <- as.character()
     for(s in names(filelocs)){
@@ -163,7 +194,7 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
           eachdf[[s]][,allrois] <- NA
           if(!is.na(thiscensor)){
             cens <- read.csv(thiscensor, header = FALSE)
-            eachdf[[s]]$censor <- cens[,1]
+            eachdf[[s]]$censor <- cens[1:tclength,1]
           }
         }
         eachdf[[s]][,r] <- thistc
@@ -219,6 +250,7 @@ getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
   timecourse_loc <- file.path(timecoursedir,  sprintf('SUB_%s_ROI_%s_timecourse.txt',subname,roiname))
   line_3dmaskave <- sprintf("3dmaskave -mask %s -quiet %s > %s",roisub_loc, subfunc_loc, timecourse_loc)
 
-  write(c(line_3dresample, line_3dcalc, line_3dmaskave), fileConn, append = TRUE)
+
+  if(!is.na(fileConn)){write(c(line_3dresample, line_3dcalc, line_3dmaskave), fileConn, append = TRUE)}
   return(list(subfunc_loc = subfunc_loc, roisub_loc = roisub_loc, roi_loc = roi_loc, timecourse_loc = timecourse_loc))
 }

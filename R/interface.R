@@ -14,7 +14,8 @@ getTC <- function(
     config_file = 'gui',
     sub_list = 'all',
     roi_list = 'all',
-    run = c('generate_timecourse_code','run_timecourse_code','run_timecourse_csv'),
+    timecourse_filename = 'timecourses.csv',
+    run = c('generate_timecourse_code','run_timecourse_code','run_timecourse_csv','write_timecourse_xlsx'),
     filelocs = NA,
     config = NA
     ){
@@ -29,8 +30,25 @@ getTC <- function(
   }
   if('run_timecourse_csv' %in% run){
     #read in all those tc files and save them to the big timecourses.csv to use as input to gimmefMRI()
-    genTimecoursesCSV('timecourses.csv', returndat$filelocs, returndat$config)
+    if(!('generate_timecourse_code' %in% run)){
+      returndat <- getTimecourse(write_file = NA, config_file = config_file, sub_list = sub_list, roi_list = roi_list)
+    }
+    genTimecoursesCSV(timecourse_filename, returndat$filelocs, returndat$config)
   }
+  if('write_timecourse_xlsx' %in% run){
+    #copy XLSX_FILENAME to sprintf('backup_%s',XLSX_FILENAME)
+    #my_timecourses <- read.csv(CSV_FILE)
+    #all_sheets <- list()
+    #sheetnames <- readxl::excel_sheets(XLSX_FILE)
+    #for sheet in sheetnames
+    # all_sheets[[sheet]] <- readxl::readxl(XLSX_FILENAME, sheet = sheet)
+    #end
+    #all_sheets$timecourses <- my_timecourses
+    #writexl::write_xlsx(all_sheets, XLSX_FILENAMEF)
+
+  }
+
+  return(returndat)
 }
 
 #' @export
