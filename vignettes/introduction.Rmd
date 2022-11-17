@@ -129,7 +129,7 @@ Load the gimmefMRI library: `library(gimmefMRI)`
 
 **NOTE:** On systems that use an outdated g++ compiler (including CentOS 7 or RHEL 7), one of the dependent packages (gridtext) will fail to install. You need to install an updated compiler and direct R to use it; see https://stackoverflow.com/questions/63962253/problem-compiling-the-%c2%b4gridtext%c2%b4-package-in-r/66811910#66811910
 
-On the Synapse research server, a newer g++ version has already been installed, but you will need to configureR to use it. From the command line (not in R), run the following two commands:
+On the Synapse research server, a newer g++ version has already been installed, but you will need to configure R to use it. From the command line (not in R), run the following two commands:
 
 `mkdir ~/.R`
 

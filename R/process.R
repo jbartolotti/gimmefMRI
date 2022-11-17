@@ -69,7 +69,8 @@ initializeGimmeFolders <- function(mm){
 doreplace <- function(line, pattern_list, target){
   for(pattern in pattern_list){
     if(!is.na(line[pattern])){
-      line[target] <- sub(paste0('{',pattern,'}'),line[pattern],line[target], fixed = TRUE)
+      message(line)
+      line[target] <- gsub(paste0('{',pattern,'}'),line[pattern],line[target], fixed = TRUE)
     }
   }
   return(line)
@@ -88,7 +89,7 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
     myfile <- config_file
   }
   # Read config file and replace search patterns e.g. {BASE_DIR} with appropriate columns
-  config <- read.csv(myfile)
+  config <- read_csv(myfile, col_types = cols(.default = "c"))
   for(linenum in 1:dim(config)[1]){
     line <- config[linenum,]
     line <- doreplace(line,c('BASE_DIR','GROUP','ID','RUN'),'DATA_DIR')

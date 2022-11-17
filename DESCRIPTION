@@ -1,6 +1,6 @@
 Package: gimmefMRI
 Title: Wrapper for GIMME Specialized for fMRI
-Version: 0.0.0.9
+Version: 0.0.0.10
 Authors@R: 
     person("James", "Bartolotti",, "jamesbartolotti@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
@@ -15,7 +15,8 @@ Imports:
     doParallel,
     readxl,
     writexl,
-    qgraph
+    qgraph,
+    readr
 Suggests: 
     rmarkdown,
     knitr
