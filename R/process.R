@@ -89,7 +89,7 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
     myfile <- config_file
   }
   # Read config file and replace search patterns e.g. {BASE_DIR} with appropriate columns
-  config <- readr::read_csv(myfile, col_types = cols(.default = "c"))
+  config <- readr::read_csv(myfile, col_types = readr::cols(.default = "c"))
   for(linenum in 1:dim(config)[1]){
     line <- config[linenum,]
     line <- doreplace(line,c('BASE_DIR','GROUP','ID','RUN'),'DATA_DIR')
