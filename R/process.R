@@ -18,9 +18,11 @@
 #roinames
   #columns: longroi, shortroi
 
-initializeGimmeFolders <- function(mm){
+initializeGimmeFolders <- function(mm, savedir = NA){
 
-  savedir <- mm$cntrl$model_save_directory
+  if(is.na(savedir)){
+    savedir <- mm$cntrl$model_save_directory
+  }
   dir.create(savedir, showWarnings = FALSE)
   for (modname in mm$model_spec$model_name ){
     thismod <- mm$model_spec[mm$model_spec$model_name == modname,]
@@ -127,9 +129,9 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
   filelocs <- list()
   for(s in sub_list){
     allruns <- config[config$ID == s,]
-    for(ll in dim(allruns)[1]){
+    for(ll in 1:dim(allruns)[1]){
     line <- allruns[ll,]
-    uid <- paste(c(line$ID,line$RUN),collapse = '_')
+    uid <- paste(line$ID,line$RUN,sep = '_')
       filelocs[[uid]] <- getTimecourse_OneSub(xtc_fileConn, s, line$RUN, config[config$ID %in% roi_list,],
                                             line$DATA_DIR,
                                             line$TIMECOURSE_DIR,
@@ -180,9 +182,10 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
 
     for(s in names(filelocs)){
       if( !(typeof(config)=='logical' && is.na(config)) ){
-        group <- unlist(config[config$ID == s,'GROUP'])
-        thisrun <- unlist(config[config$ID == s,'RUN'])
-        thiscensor <- unlist(config[config$ID == s,'CENSOR_FILENAME'])
+        config$UID <- paste(config$ID,config$RUN,sep = '_')
+        group <- unlist(config[config$UID == s,'GROUP'])
+        thisrun <- unlist(config[config$UID == s,'RUN'])
+        thiscensor <- unlist(config[config$UID == s,'CENSOR_FILENAME'])
       } else{
         group <- NA
         thisrun <- NA

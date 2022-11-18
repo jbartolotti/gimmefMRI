@@ -135,7 +135,7 @@ gimmefMRIcustom <- function(
   #Creates model folders and fills input_files folders with
   #subject timecourses from mm$timecourses based on
   #model parameters in mm$model_spec
-  initializeGimmeFolders(savedir, mm)
+  initializeGimmeFolders(mm, savedir = savedir)
 
   #Creates an .R file containing code to run all models in parallel
   runmodel_filename <- writeGimmeCode(savedir, mm)
