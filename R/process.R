@@ -69,7 +69,6 @@ initializeGimmeFolders <- function(mm){
 doreplace <- function(line, pattern_list, target){
   for(pattern in pattern_list){
     if(!is.na(line[pattern])){
-      message(line)
       line[target] <- gsub(paste0('{',pattern,'}'),line[pattern],line[target], fixed = TRUE)
     }
   }
@@ -127,8 +126,11 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
 
   filelocs <- list()
   for(s in sub_list){
-    line <- config[config$ID == s,]
-      filelocs[[s]] <- getTimecourse_OneSub(xtc_fileConn, s, config[config$ID %in% roi_list,],
+    allruns <- config[config$ID == s,]
+    for(ll in dim(allruns)[1]){
+    line <- allruns[ll,]
+    uid <- paste(c(line$ID,line$RUN),collapse = '_')
+      filelocs[[uid]] <- getTimecourse_OneSub(xtc_fileConn, s, line$RUN, config[config$ID %in% roi_list,],
                                             line$DATA_DIR,
                                             line$TIMECOURSE_DIR,
                                             line$FUNCTIONAL_FILENAME,
@@ -137,6 +139,7 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
                                             subroi_dir = line$SUB_ROI_DIR,
                                             remove_subrois = FALSE
                                             )
+    }
   }
   if(!is.na(xtc_fileConn)){close(xtc_fileConn)}
   return(list(filelocs = filelocs, config = config))
@@ -206,7 +209,7 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
     write.csv(alldf, file = tcfilename,row.names = FALSE)
   }
 
-getTimecourse_OneSub <- function(fileConn, subname, roi_df,
+getTimecourse_OneSub <- function(fileConn, subname, runname, roi_df,
                                  subdir,
                                  timecoursedir,
                                  sub_functional_filename,
@@ -218,7 +221,7 @@ getTimecourse_OneSub <- function(fileConn, subname, roi_df,
   filelocs = list()
   for(roiname in roi_df$ID){
     line <- roi_df[roi_df$ID == roiname,]
-    filelocs[[roiname]] <- getTimecourse_OneSub_OneROI(fileConn, subname, roiname,
+    filelocs[[roiname]] <- getTimecourse_OneSub_OneROI(fileConn, subname, runname, roiname,
                                                    subdir,
                                                    line$DATA_DIR,
                                                    timecoursedir,
@@ -230,7 +233,7 @@ getTimecourse_OneSub <- function(fileConn, subname, roi_df,
   return(filelocs)
 }
 
-getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
+getTimecourse_OneSub_OneROI <- function(fileConn, subname, runname, roiname,
                                         subdir,
                                         roidir,
                                         timecoursedir,
@@ -238,7 +241,7 @@ getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
                                         submaskdir = subdir, subroi_dir = file.path(subdir,'subject_rois'), remove_subrois = FALSE){
   #resample the roi to the subjects functional
 #  subfunc_loc <-  file.path(subdir,sub_functional_filename)
-  roisub_loc <- file.path(subroi_dir,sprintf('SUB_%s_ROI_%s+tlrc',subname,roiname))
+  roisub_loc <- file.path(subroi_dir,sprintf('SUB_%s_RUN_%s_ROI_%s+tlrc',subname, runname, roiname))
   dir.create(file.path(subroi_dir), showWarnings = FALSE)
   dir.create(file.path(timecoursedir), showWarnings = FALSE)
 #  roi_loc <- file.path(roidir, roi_filename)
@@ -249,7 +252,7 @@ getTimecourse_OneSub_OneROI <- function(fileConn, subname, roiname,
   line_3dcalc <- sprintf("3dcalc -a %s -b %s -expr \'a*b\' -nscale -overwrite -prefix %s", roisub_loc, sub_mask_loc, roisub_loc)
 
   #save timecourse in this mask to text
-  timecourse_loc <- file.path(timecoursedir,  sprintf('SUB_%s_ROI_%s_timecourse.txt',subname,roiname))
+  timecourse_loc <- file.path(timecoursedir,  sprintf('SUB_%s_RUN_%s_ROI_%s_timecourse.txt',subname, runname, roiname))
   line_3dmaskave <- sprintf("3dmaskave -mask %s -quiet %s > %s",roisub_loc, subfunc_loc, timecourse_loc)
 
 
