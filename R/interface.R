@@ -26,7 +26,11 @@ getTC <- function(
   }
   if('run_timecourse_code' %in% run){
     #run the shell file
-    system(sprintf('Rscript %s',write_file))
+    if(any(grep('/',write_file))){
+        system(sprintf('%s',write_file))
+      } else {
+        system(sprintf('./%s',write_file))
+      }
   }
   if('run_timecourse_csv' %in% run){
     #read in all those tc files and save them to the big timecourses.csv to use as input to gimmefMRI()

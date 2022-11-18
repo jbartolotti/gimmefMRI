@@ -165,6 +165,7 @@ genTimecoursesCSV_config <- function(tcfilename, config = 'gui'){
 
 
 }
+
 genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
     allrois <- as.character()
     for(s in names(filelocs)){
@@ -176,9 +177,9 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
 
     for(s in names(filelocs)){
       if( !(typeof(config)=='logical' && is.na(config)) ){
-        group <- config[config$ID == s,'GROUP']
-        thisrun <- config[config$ID == s,'RUN']
-        thiscensor <- config[config$ID == s,'CENSOR_FILENAME']
+        group <- unlist(config[config$ID == s,'GROUP'])
+        thisrun <- unlist(config[config$ID == s,'RUN'])
+        thiscensor <- unlist(config[config$ID == s,'CENSOR_FILENAME'])
       } else{
         group <- NA
         thisrun <- NA
