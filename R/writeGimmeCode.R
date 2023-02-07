@@ -35,10 +35,13 @@ writeGimmeCode <- function(mm, maxcores = 1){
     #get modulatory effects. i.e., multiply one var with another, like task with each node
     modu_write <- WGC_modulatory(thismod,mm)
 
+    #Standardize predictors, i.e. mean 0 and SD 1.
+    standardize_write <- WGC_standardize(thismod,mm)
+
     #Write model specifications for this model to file
     WGC_modelspecs(runmodel_fileConn, mi,input_basedir,output_basedir,
                    thismod, subcutoff,
-                   cssubgroup_write,paths_write,exogenous_write,modu_write)
+                   cssubgroup_write,paths_write,exogenous_write,modu_write,standardize_write)
   }
 
   #Write parallelization header, if applicable
@@ -57,7 +60,8 @@ writeGimmeCode <- function(mm, maxcores = 1){
     "      subcutoff = modelspecs[[i]]$subcutoff,",
     "      confirm_subgroup = modelspecs[[i]]$confirm_subgroup,",
     "      paths = modelspecs[[i]]$paths,",
-    "      exogenous = modelspecs[[i]]$exogenous",
+    "      exogenous = modelspecs[[i]]$exogenous,",
+    "      standardize = modelspecs[[i]]$standardize",
     "  )"),
     runmodel_fileConn, append = TRUE)
 
@@ -104,6 +108,16 @@ WGC_exogenous <- function(thismod,mm){
   } else{exo_write <- 'NULL'}
   return(exo_write)
 }
+
+WGC_standardize <- function(thismod,mm){
+  stan <- thismod$standardize_predictors
+  if (stan || stan %in% c('TRUE','true','yes')){
+    stan_write <- 'TRUE'
+  } else{stan_write <- 'FALSE'}
+  return(stan_write)
+}
+
+
 
 WGC_paths <- function(thismod, mm){
   if (!(is.na(thismod$apriori_paths) || thismod$apriori_paths %in% c('NA','na','n/a','N/A')) && length(thismod$apriori_paths)>0){
@@ -203,7 +217,7 @@ WGC_subgroup <- function(runmodel_fileConn, mi, thismod, mm, input_basedir){
 WGC_modelspecs <- function(runmodel_fileConn,
                            mi,input_basedir,output_basedir,
                            thismod, subcutoff,
-                           cssubgroup_write,paths_write,exogenous_write,modu_write){
+                           cssubgroup_write,paths_write,exogenous_write,modu_write,standardize_write){
   write(c(
     sprintf("modelspecs[[%s]] <- list(",mi),
     sprintf("      data = \'%s\',",input_basedir),
@@ -218,7 +232,8 @@ WGC_modelspecs <- function(runmodel_fileConn,
     sprintf("      confirm_subgroup = %s,",cssubgroup_write),
     sprintf("      paths = %s,",paths_write),
     sprintf("      exogenous = %s,",exogenous_write),
-    sprintf("      mult_vars = %s",modu_write),
+    sprintf("      mult_vars = %s,",modu_write),
+    sprintf("      standardize = %s",standardize_write),
     ")"),
     runmodel_fileConn,append = TRUE)
 }

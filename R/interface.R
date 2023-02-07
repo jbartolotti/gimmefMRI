@@ -1,3 +1,10 @@
+#Todo:
+# allowing multiple runs e.g. (1)(2) isn't working
+# allow standardization of inputs. Detect if inputs are too different and prompt to standardize.
+# convert a condition variable that's in text to a factor
+# create additional figures, e.g. weights scatter plot
+
+
 #' @export
 gimmefMRI_templates <- function(writedir = getwd()){
   file.copy(
@@ -67,6 +74,8 @@ gimmefMRI <- function(mode = 'interactive', run = 'use_config', models = 'use_co
     } else {
       myfile <- file.choose()
     }
+    myfile <- paste(strsplit(myfile,'\\',fixed=TRUE)[[1]],collapse='/')
+
     myfile_dir <- paste(strsplit(myfile,'/')[[1]][1:(length(strsplit(myfile,'/')[[1]])-1)],collapse = '/')
   }
 

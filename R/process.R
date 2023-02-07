@@ -37,7 +37,23 @@ initializeGimmeFolders <- function(mm, savedir = NA){
     roicols <- mm$lists[[thismod$network_name]]
     datacols <- c('slicenum', 'time', 'condition', 'censor', 'subnum', 'subgroup', 'run')
     colkeep <- c(roicols, datacols)
-    rowkeep <- mm$timecourses$run == thismod$run
+    if(toupper(thismod$run) == 'ALL') {
+      #all
+      rowkeep <- rep(TRUE,length(mm$timecourses$run))
+    } else{
+      if(class(thismod$run) == 'character'){
+        #character. search for each entry within parentheses
+      spl <- strsplit(thismod$run,'()')[[1]]
+      eachrun <- spl[! spl %in% c('(',')')]
+      rowkeep <- rep(FALSE,length(mm$timecourses$run))
+      for(thisrun in eachrun){
+        rowkeep <- rowkeep | mm$timecourses$run == thisrun
+        }
+      } else {
+        #numeric
+        rowkeep <- mm$timecourses$run == thismod$run
+        }
+      }
     dd <- mm$timecourses[rowkeep,colkeep]
 
     #for each subject, write timecourses to file, after censoring
@@ -172,7 +188,11 @@ genTimecoursesCSV_config <- function(tcfilename, config = 'gui'){
 }
 
 genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
-    allrois <- as.character()
+  if(!(typeof(config)=='logical' && is.na(config))){
+    config$UID <- paste(config$ID,config$RUN,sep = '_')
+  }
+
+  allrois <- as.character()
     for(s in names(filelocs)){
       allrois <- c(allrois,names(filelocs[[s]]))
     }
@@ -182,30 +202,32 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
 
     for(s in names(filelocs)){
       if( !(typeof(config)=='logical' && is.na(config)) ){
-        config$UID <- paste(config$ID,config$RUN,sep = '_')
+        thissub <- unlist(config[config$UID == s,'ID'])
         group <- unlist(config[config$UID == s,'GROUP'])
         thisrun <- unlist(config[config$UID == s,'RUN'])
         thiscensor <- unlist(config[config$UID == s,'CENSOR_FILENAME'])
       } else{
+        thissub <- NA
         group <- NA
         thisrun <- NA
         thiscensor <- NA
       }
       for(r in names(filelocs[[s]])){
         thistc_filename <- filelocs[[s]][[r]]$timecourse_loc
-        thistc <- read.csv(thistc_filename,header = FALSE)
-
-        # initialize this subject's timecourse df if it doesn't exist
-        if(! s %in% names(eachdf)){
-          tclength <- dim(thistc)[1]
-          eachdf[[s]]  <- data.frame(slicenum = 1:tclength, time = rep(NA,1,tclength), condition = rep(NA,1,tclength), censor = rep(0,1,tclength), subnum = rep(s,1,tclength), subgroup = rep(group,1,tclength), run = rep(thisrun,1,tclength), stringsAsFactors = FALSE)
-          eachdf[[s]][,allrois] <- NA
-          if(!is.na(thiscensor)){
-            cens <- read.csv(thiscensor, header = FALSE)
-            eachdf[[s]]$censor <- cens[1:tclength,1]
+        if(file.info(thistc_filename)$size > 0){
+          thistc <- read.csv(thistc_filename,header = FALSE)
+          # initialize this subject's timecourse df if it doesn't exist
+          if(! s %in% names(eachdf)){
+            tclength <- dim(thistc)[1]
+            eachdf[[s]]  <- data.frame(slicenum = 1:tclength, time = rep(NA,1,tclength), condition = rep(NA,1,tclength), censor = rep(0,1,tclength), subnum = rep(thissub,1,tclength), subgroup = rep(group,1,tclength), run = rep(thisrun,1,tclength), stringsAsFactors = FALSE)
+            eachdf[[s]][,allrois] <- NA
+            if(!is.na(thiscensor)){
+              cens <- read.csv(thiscensor, header = FALSE)
+              eachdf[[s]]$censor <- cens[1:tclength,1]
+            }
           }
+          eachdf[[s]][,r] <- thistc
         }
-        eachdf[[s]][,r] <- thistc
       }
     }
     alldf <- do.call('rbind',eachdf)
