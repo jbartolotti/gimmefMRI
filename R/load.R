@@ -37,6 +37,7 @@ readXLSXinput <- function(xlsx_file,savedir){
   mspec$subgroup_thresh <- as.numeric(mspec$subgroup_thresh)
   mspec$subgroups <- as.logical(mspec$subgroups)
   mspec$apriori_subgroups <- as.logical(mspec$apriori_subgroups)
+  mspec$standardize <- as.logical(mspec$standardize)
 
   figs2 <- t(figs[,3:(dim(figs)[2])])
   colnames(figs2) <- figs[,2]
