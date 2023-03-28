@@ -214,7 +214,7 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
       }
       for(r in names(filelocs[[s]])){
         thistc_filename <- filelocs[[s]][[r]]$timecourse_loc
-        if(file.info(thistc_filename)$size > 0){
+        if(!is.na(file.info(thistc_filename)$size) && file.info(thistc_filename)$size > 0){
           thistc <- read.csv(thistc_filename,header = FALSE)
           # initialize this subject's timecourse df if it doesn't exist
           if(! s %in% names(eachdf)){
