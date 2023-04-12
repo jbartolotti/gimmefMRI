@@ -63,6 +63,74 @@ getTC <- function(
 }
 
 #' @export
+TCCrossCorr <- function(
+  timecourse_file = 'gui',
+  cormat_filename = 'timecourses_cormat.csv',
+  sub_list = 'all',
+  roi_list = 'all',
+  censor_values = 0
+  ){
+  #Show warnings during execution. Revert to user setting on exit.
+  oldwarn <- getOption("warn")
+  on.exit(options(warn = oldwarn))
+  options(warn = 1)
+
+  #Get filename and load timecourse file
+  myfile <- UTILS.getFilename(timecourse_file)
+  tc <- read.csv(myfile)
+  tc$uid <- paste(tc$subnum, tc$run, sep = '_')
+
+
+  #Process roi_list, warn if requested rois not present.
+  standard_cols <- c('slicenum','time','condition','censor','subnum','subgroup','run')
+  file_rois <- names(tc)[! names(tc) %in% standard_cols]
+  if(roi_list == 'all'){
+    roi_list <- file_rois
+  } else {
+    if(any(!roi_list %in% file_rois)){
+      warning(sprintf('These requested ROIs were not found in %s and will be skipped: %s', myfile, paste(roi_list[!roi_list %in% file_rois]  , collapse = ', ')))
+    }
+    roi_list <- roi_list[roi_list %in% file_rois]
+  }
+
+  #Process sub_list, warn if requested participants not present.
+  file_ptcp <- unique(tc$subnum)
+  if(sub_list == 'all'){
+    sub_list <- file_pctp
+  } else {
+    if(any(!sub_list %in% file_pctp)){
+      warning(sprintf('These requested Participants were not found in %s and will be skipped: %s', myfile, paste(sub_list[!sub_list %in% file_ptcp]  , collapse = ', ')))
+    }
+    sub_list <- sub_list[sub_list %in% file_ptcp]
+  }
+
+  #Censor requested values from timecourses
+  if(censor){
+    tc[tc$censor %in% censor_values, roi_list] <- NA
+  }
+
+  each_cormat <- list()
+  for(u in unique(tc$uid)){
+    thistc <- subset(tc, uid == u)
+    this_cormat <- cor(thistc[,roi_list], use = 'pairwise.complete.obs')
+    ut <- upper.tri(this_cormat, diag = FALSE)
+
+    cordf <- as.data.frame(cbind(roi1 = rownames(this_cormat)[row(this_cormat)[ut]],
+                                 roi2 = colnames(this_cormat)[col(this_cormat)[ut]],
+                                 pearson_r = c(this_cormat[ut])))
+    cordf$connection <- paste(cordf$roi1,cordf$roi2, sep = '~')
+
+    cordf <- cbind(cordf, condition = thistc$condition[1], subnum = thistc$subnum[1], subgroup = thistc$subgroup[1], run = thistc$run[1], uid = thistc$uid[1])
+    cordf$z <- atanh(as.numeric(cordf$pearson_r)) #Fisher's Z transformation: Inverse hyperbolic tangent function
+    each_cormat[[u]] <- cordf[,c('uid','subnum','subgroup','condition','run','roi1','roi2','connection','pearson_r','z')]
+  }
+  all_cormat <- do.call('rbind',each_cormat)
+
+  write.csv(all_cormat, cormat_filename, row.names = FALSE)
+
+}
+
+#' @export
 gimmefMRI <- function(mode = 'interactive', run = 'use_config', models = 'use_config'){
   sinfo <- Sys.info()
   if(mode == 'example' || mode == 'demo'){

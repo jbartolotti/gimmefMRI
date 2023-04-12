@@ -35,6 +35,23 @@ useCores <- function(maxcores){
   return(usecores)
 }
 
+UTILS.getFilename <- function(input_filename)
+{
+  if(input_filename=='gui')
+  {
+    if(Sys.info()[['sysname']] == 'Linux')
+    {
+      myfile <- my.file.browse()
+    } else {
+      myfile <- file.choose()
+    }
+  } else{
+    myfile <- input_filename
+  }
+  return(myfile)
+}
+
+
 #https://stackoverflow.com/questions/9122600/r-command-line-file-dialog-similar-to-file-choose
 
 #' Text-based interactive file selection.
