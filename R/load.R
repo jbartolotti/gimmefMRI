@@ -38,6 +38,7 @@ readXLSXinput <- function(xlsx_file,savedir){
   mspec$subgroups <- as.logical(mspec$subgroups)
   mspec$apriori_subgroups <- as.logical(mspec$apriori_subgroups)
   mspec$standardize <- as.logical(mspec$standardize)
+  mspec$enable <- as.logical(mspec$enable)
 
   figs2 <- t(figs[,3:(dim(figs)[2])])
   colnames(figs2) <- figs[,2]
@@ -79,9 +80,12 @@ applyCustomSettings <- function(mm, run, models){
 
   #Update Model List in config file
   if (length(models) == 1 && (models == 'all' || models == 'use_config')){
+    if(any('enable' %in% colnames(mm$model_spec))){
+      mm$model_spec <- mm$model_spec[mm$model_spec$enable]
+    }
     model_list <- mm$model_spec$model_name
   } else{
-    model_list <- mm$model_spec$model_name
+    model_list <- models
     if(any(!(models %in% model_list))){
       warning(sprintf('WARNING: The following models are not present in the config file and will be skipped:\n%s',paste(models[!(models %in% model_list)], collapse = '\n')))
       model_list <- model_list[model_list %in% models]

@@ -43,7 +43,7 @@ initializeGimmeFolders <- function(mm, savedir = NA){
     } else{
       if(class(thismod$run) == 'character'){
         #character. search for each entry within parentheses
-      spl <- strsplit(thismod$run,'()')[[1]]
+      spl <- strsplit(thismod$run,'[()]')[[1]]
       eachrun <- spl[! spl %in% c('(',')')]
       rowkeep <- rep(FALSE,length(mm$timecourses$run))
       for(thisrun in eachrun){
