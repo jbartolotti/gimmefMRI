@@ -81,7 +81,7 @@ applyCustomSettings <- function(mm, run, models){
   #Update Model List in config file
   if (length(models) == 1 && (models == 'all' || models == 'use_config')){
     if(any('enable' %in% colnames(mm$model_spec))){
-      mm$model_spec <- mm$model_spec[mm$model_spec$enable]
+      mm$model_spec <- mm$model_spec[mm$model_spec$enable,]
     }
     model_list <- mm$model_spec$model_name
   } else{
