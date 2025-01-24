@@ -222,8 +222,35 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
             eachdf[[s]]  <- data.frame(slicenum = 1:tclength, time = rep(NA,1,tclength), condition = rep(NA,1,tclength), censor = rep(0,1,tclength), subnum = rep(thissub,1,tclength), subgroup = rep(group,1,tclength), run = rep(thisrun,1,tclength), stringsAsFactors = FALSE)
             eachdf[[s]][,allrois] <- NA
             if(!is.na(thiscensor)){
+              intext <- readLines(thiscensor)
+              if(startsWith(intext,'-CENSORTR ')){
+               cens <- rep(1,tclength)
+               censtext <- gsub('-CENSORTR ','',intext)
+               # Split the input text by space and comma to separate chunks
+               chunks <- strsplit(censtext, "[, ]+")[[1]]
+               run_prefix <- sprintf('%s:',thisrun)
+               chunks_thisrun <- chunks[grepl(run_prefix,chunks)]
+               chunks_thisrun <- gsub(run_prefix,'',chunks_thisrun)
+
+               for(index in chunks_thisrun){
+                 if (grepl("\\.\\.", index)) {
+                   # If it's a range, expand it
+                   range_parts <- as.integer(unlist(strsplit(index, "\\.\\.")))
+                   cens[(range_parts[1]+1):(range_parts[2]+1)] <- 0
+                 } else {
+                   # If it's a single index, mark it
+                   cens[as.integer(index)+1] <- 0
+                 }
+               }
+               eachdf[[s]]$censor <- cens
+
+
+              } else {
+
               cens <- read.csv(thiscensor, header = FALSE)
               eachdf[[s]]$censor <- cens[1:tclength,1]
+              }
+
             }
           }
           eachdf[[s]][,r] <- thistc
