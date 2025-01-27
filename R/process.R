@@ -216,7 +216,14 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA, verbose = FALSE
         thistc_filename <- filelocs[[s]][[r]]$timecourse_loc
         if(!is.na(file.info(thistc_filename)$size) && file.info(thistc_filename)$size > 0){
           if(verbose){message(sprintf('Reading %s',thistc_filename))}
-          thistc <- read.csv(thistc_filename,header = FALSE)
+          didreadtc <- FALSE
+          tryCatch(
+            {thistc <- read.csv(thistc_filename,header = FALSE)
+            didreadtc <- TRUE
+          }, error = function(e){message('error reading ',thistc_filename)})
+          if(didreadtc){
+          if(verbose){message('Success: Timecourse')}
+
           # initialize this subject's timecourse df if it doesn't exist
           if(! s %in% names(eachdf)){
             tclength <- dim(thistc)[1]
@@ -248,13 +255,16 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA, verbose = FALSE
 
               } else {
 
+              if(verbose){message(sprintf('Reading %s',thiscensor))}
               cens <- read.csv(thiscensor, header = FALSE)
+              if(verbose){message('Success: Censor')}
               eachdf[[s]]$censor <- cens[1:tclength,1]
               }
 
             }
           }
           eachdf[[s]][,r] <- thistc
+        }
         }
       }
     }
