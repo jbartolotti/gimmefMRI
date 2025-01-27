@@ -121,7 +121,7 @@ getTimecourse <- function(write_file = 'extract_timecourses.sh', config_file = '
   }
 
   # process sub_list and roi_list to ensure requested entries are present in the config file
-  config_sub_list <- config$ID[config$TYPE == 'sub']
+  config_sub_list <- unique(config$ID[config$TYPE == 'sub'])
   config_roi_list <- config$ID[config$TYPE == 'roi']
 
   if(length(sub_list) == 1 && sub_list == 'all'){sub_list <- config_sub_list}
