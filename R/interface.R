@@ -24,7 +24,8 @@ getTC <- function(
     timecourse_filename = 'timecourses.csv',
     run = c('generate_timecourse_code','run_timecourse_code','run_timecourse_csv','write_timecourse_xlsx'),
     filelocs = NA,
-    config = NA
+    config = NA,
+    verbose = FALSE
     ){
 
   if('generate_timecourse_code' %in% run){
@@ -44,7 +45,7 @@ getTC <- function(
     if(!('generate_timecourse_code' %in% run)){
       returndat <- getTimecourse(write_file = NA, config_file = config_file, sub_list = sub_list, roi_list = roi_list)
     }
-    genTimecoursesCSV(timecourse_filename, returndat$filelocs, returndat$config)
+    genTimecoursesCSV(timecourse_filename, returndat$filelocs, returndat$config,verbose)
   }
   if('write_timecourse_xlsx' %in% run){
     #copy XLSX_FILENAME to sprintf('backup_%s',XLSX_FILENAME)

@@ -187,7 +187,7 @@ genTimecoursesCSV_config <- function(tcfilename, config = 'gui'){
 
 }
 
-genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
+genTimecoursesCSV <- function(tcfilename, filelocs, config = NA, verbose = FALSE){
   if(!(typeof(config)=='logical' && is.na(config))){
     config$UID <- paste(config$ID,config$RUN,sep = '_')
   }
@@ -215,6 +215,7 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
       for(r in names(filelocs[[s]])){
         thistc_filename <- filelocs[[s]][[r]]$timecourse_loc
         if(!is.na(file.info(thistc_filename)$size) && file.info(thistc_filename)$size > 0){
+          if(verbose){message(sprintf('Reading %s',thistc_filename))}
           thistc <- read.csv(thistc_filename,header = FALSE)
           # initialize this subject's timecourse df if it doesn't exist
           if(! s %in% names(eachdf)){
