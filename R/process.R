@@ -222,7 +222,6 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA, verbose = FALSE
             didreadtc <- TRUE
           }, error = function(e){message('error reading ',thistc_filename)})
           if(didreadtc){
-          if(verbose){message('Success: Timecourse')}
 
           # initialize this subject's timecourse df if it doesn't exist
           if(! s %in% names(eachdf)){
@@ -256,8 +255,13 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA, verbose = FALSE
               } else {
 
               if(verbose){message(sprintf('Reading %s',thiscensor))}
-              cens <- read.csv(thiscensor, header = FALSE)
-              if(verbose){message('Success: Censor')}
+                if(file.size(thiscensor) > 1){
+                  cens <- read.csv(thiscensor, header = FALSE)
+                } else {
+                  #if the censor file is empty, assume that nothing is censored
+                  warning(sprintf('Censor File %s is empty. Applying no censoring.'))
+                  cens <- rep(1,tclength)
+                }
               eachdf[[s]]$censor <- cens[1:tclength,1]
               }
 
