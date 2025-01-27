@@ -259,7 +259,7 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA, verbose = FALSE
                   cens <- read.csv(thiscensor, header = FALSE)
                 } else {
                   #if the censor file is empty, assume that nothing is censored
-                  warning(sprintf('Censor File %s is empty. Applying no censoring.'))
+                  warning(sprintf('Censor File %s is empty. Applying no censoring.',thiscensor))
                   cens <- rep(1,tclength)
                 }
               eachdf[[s]]$censor <- cens[1:tclength,1]
