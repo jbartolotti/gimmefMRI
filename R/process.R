@@ -223,7 +223,7 @@ genTimecoursesCSV <- function(tcfilename, filelocs, config = NA){
             eachdf[[s]][,allrois] <- NA
             if(!is.na(thiscensor)){
               intext <- readLines(thiscensor)
-              if(startsWith(intext,'-CENSORTR ')){
+              if(startsWith(intext[1],'-CENSORTR')){
                cens <- rep(1,tclength)
                censtext <- gsub('-CENSORTR ','',intext)
                # Split the input text by space and comma to separate chunks
