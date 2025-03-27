@@ -76,9 +76,15 @@ initializeGimmeFolders <- function(mm, savedir = NA){
 
       if (dim(thissub)[1] == 0 ){warning(sprintf('Empty dataset for %s. File skipped.',s))}
       else{
-        write.csv(thissub[,short_roicols],
-                file.path(savedir,thismod$model_name,'input_files',
-                          sprintf('%s_%s.csv',thisgroup,s)), row.names = FALSE)
+        if(thismod$apriori_subgroups){
+          prefix <- sprintf('%s_',thisgroup)
+        } else{
+          prefix <- ''
+        }
+        outfilename <- file.path(savedir,thismod$model_name,'input_files',sprintf('%s%s.csv',prefix,s))
+
+
+        write.csv(thissub[,short_roicols], outfilename, row.names = FALSE)
       }
     }
 
