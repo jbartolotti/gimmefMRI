@@ -148,15 +148,15 @@ gimmefMRI <- function(mode = 'interactive', run = 'use_config', models = 'use_co
     myfile_dir <- paste(strsplit(myfile,'/')[[1]][1:(length(strsplit(myfile,'/')[[1]])-1)],collapse = '/')
   }
 
-  mm <- readXLSXinput(myfile,myfile_dir)
+  mm_raw <- readXLSXinput(myfile,myfile_dir)
 
-  mm <- applyCustomSettings(mm,run,models)
+  mm <- applyCustomSettings(mm_raw,run,models)
 
-  mm <- runGimmeSteps(mm)
+  mm <- runGimmeSteps(mm,mm_raw)
 
 }
 
-runGimmeSteps <- function(mm){
+runGimmeSteps <- function(mm,mm_raw){
   runmodel_filename = as.character()
   runfigure_filename = as.character()
 
@@ -186,7 +186,7 @@ runGimmeSteps <- function(mm){
 
   }
   if(mm$cntrl$run_figure_code){
-    gimmefMRI_figures(mm)
+    gimmefMRI_figures(mm_raw)
 
   }
 

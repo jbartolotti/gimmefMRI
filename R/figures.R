@@ -1,8 +1,14 @@
 
 gimmefMRI_figures <- function(mm){
+  # for compatibility with old versions. If there is no figure enable column, then enable them all.
+  if(! 'enable' %in% colnames(mm$figures)){
+    mm$figures$enable = TRUE
+  }
+  mm$figures$enable <- as.logical(mm$figures$enable)
   for(i in 1:dim(mm$figures)[1]){
     thisfig <- mm$figures[i,]
-  }
+    if(thisfig$enable){
+
   network_name <- mm$model_spec[mm$model_spec$model_name %in% thisfig$model_name,'network_name']
   nodes <- mm$lists[[network_name]]
   shortnodes <- applyShorten(nodes,mm$shortnames)
@@ -114,7 +120,8 @@ gimmefMRI_figures <- function(mm){
                  asize = ARROW_SIZE
   )
   dev.off()
-
+    }
+  }
   #  cc2 = ccedge
   #  cc2$weight = 0
   #  cc2$color = ''
