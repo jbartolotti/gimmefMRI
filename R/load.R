@@ -19,10 +19,10 @@ readXLSXinput <- function(xlsx_file,savedir){
   for(i in 1:dim(cntrl_wide)[1]){
     cntrl[[cntrl_wide$name[i]]] <- cntrl_wide$value[i]
   }
-  cntrl$generate_model_code <- as.logical(cntrl$generate_model_code)
-  cntrl$run_model_code <- as.logical(cntrl$run_model_code)
-  cntrl$generate_figure_code <- as.logical(cntrl$generate_figure_code)
-  cntrl$run_figure_code <- as.logical(cntrl$run_figure_code)
+  cntrl$generate_model_code <- cntrl$generate_model_code %in% c(1, "1", TRUE, "TRUE", "true", "T")
+  cntrl$run_model_code <- cntrl$run_model_code %in% c(1, "1", TRUE, "TRUE", "true", "T")
+  cntrl$generate_figure_code <- cntrl$generate_figure_code %in% c(1, "1", TRUE, "TRUE", "true", "T")
+  cntrl$run_figure_code <- cntrl$run_figure_code %in% c(1, "1", TRUE, "TRUE", "true", "T")
 
   cntrl$script_save_directory <- sub('{PWD}',savedir,cntrl$script_save_directory, fixed = TRUE)
   cntrl$model_save_directory <- sub('{PWD}',savedir,cntrl$model_save_directory, fixed = TRUE)
@@ -35,10 +35,10 @@ readXLSXinput <- function(xlsx_file,savedir){
   mspec <- as.data.frame(mspec)
   mspec$group_thresh <- as.numeric(mspec$group_thresh)
   mspec$subgroup_thresh <- as.numeric(mspec$subgroup_thresh)
-  mspec$subgroups <- as.logical(mspec$subgroups)
-  mspec$apriori_subgroups <- as.logical(mspec$apriori_subgroups)
-  mspec$standardize <- as.logical(mspec$standardize)
-  mspec$enable <- as.logical(mspec$enable)
+  mspec$subgroups <- mspec$subgroups %in% c(1, "1", TRUE, "TRUE", "true", "T")
+  mspec$apriori_subgroups <- mspec$apriori_subgroups %in% c(1, "1", TRUE, "TRUE", "true", "T")
+  mspec$standardize <- mspec$standardize %in% c(1, "1", TRUE, "TRUE", "true", "T")
+  mspec$enable <- mspec$enable %in% c(1, "1", TRUE, "TRUE", "true", "T")
 
   figs2 <- t(figs[,3:(dim(figs)[2])])
   colnames(figs2) <- figs[,2]
