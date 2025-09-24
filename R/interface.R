@@ -132,7 +132,7 @@ TCCrossCorr <- function(
 }
 
 #' @export
-gimmefMRI <- function(mode = 'interactive', run = 'use_config', models = 'use_config'){
+gimmefMRI <- function(mode = 'interactive', run = 'use_config', models = 'use_config', filename = NULL, filepath = NULL){
   sinfo <- Sys.info()
   if(mode == 'example' || mode == 'demo'){
       myfile <- system.file('extdata','DemoGIMME.xlsx', package = 'gimmefMRI')
@@ -146,6 +146,9 @@ gimmefMRI <- function(mode = 'interactive', run = 'use_config', models = 'use_co
     myfile <- paste(strsplit(myfile,'\\',fixed=TRUE)[[1]],collapse='/')
 
     myfile_dir <- paste(strsplit(myfile,'/')[[1]][1:(length(strsplit(myfile,'/')[[1]])-1)],collapse = '/')
+  } else if(mode == 'filename'){
+    myfile <- filename
+    myfile_dir <- filepath
   }
 
   mm_raw <- readXLSXinput(myfile,myfile_dir)

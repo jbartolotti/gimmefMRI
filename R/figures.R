@@ -141,3 +141,94 @@ gimmefMRI_figures <- function(mm){
   #)
 }
 #gimmefMRI(datadir = '~/R-Drive/Bartolotti_J/gimme_toolkit/demodat', savedir = '~/R-Drive/Bartolotti_J/gimme_toolkit/models')
+
+gimme_dotplot <- function(){
+  basedir <- "P:/PHI_HL_CMH2228_NN-RCT/CM2228_NN-RCT/MR_Data/GIMME"
+  modeldir <- "models/T1T2"
+  filename <- 'indivPathEstimates.csv'
+  dat <- read.csv(file.path(basedir, modeldir, filename))
+
+  dat$group <- unlist(lapply(dat$file, function(x){strsplit(x, '_')[[1]][1]}))
+  dat$color <- dat$group
+  dat$color[dat$color == 'A'] <- 'blue'
+  dat$color[dat$color == 'B'] <- 'red'
+  dat$color <- factor(dat$color, levels = c('blue','red'))
+
+
+  dat$pid <- unlist(lapply(dat$file, function(x){strsplit(x, '_')[[1]][2]}))
+  dat$time <- unlist(lapply(dat$file, function(x){strsplit(x, '_')[[1]][3]}))
+
+  dat$conn <- paste0(dat$lhs,dat$op,dat$rhs)
+  dat$conn_clean <- dat$conn
+  dat$conn_clean[dat$conn_clean == 'L_lPFC~R_lPFC'] <- 'R_lPFC -> L_lPFC'
+  dat$conn_clean[dat$conn_clean == 'L_Put~L_GP'] <- 'L_GP -> L_Putamen'
+  dat$conn_clean[dat$conn_clean == 'R_Put~R_GP'] <- 'R_GP -> L_Putamen'
+  dat$conn_clean[dat$conn_clean == 'rACC~vmPFC'] <- 'vmPFC -> rACC'
+
+
+  dat$islag <- grepl('lag',dat$rhs)
+  dat$conclean_group <- paste(dat$conn_clean, dat$color, sep = ' ')
+
+  library(Hmisc)
+  ggplot2::ggplot(subset(dat, !islag & level == 'group'), ggplot2::aes(x = conclean_group, y = beta, color = color)) + ggbeeswarm::geom_quasirandom() +
+    ggplot2::stat_summary(fun='mean', geom = 'point', color = 'black') +
+    ggplot2::stat_summary(fun.data= mean_cl_normal, geom = 'pointrange', color = 'black') +
+    scale_color_manual(values= c('blue','red')) +
+    theme_bw() +
+    labs(x = '') +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+  ggsave('T1T2_dot.png', width = 8, height = 6)
+
+  library(lme4)
+
+
+  dat2 <- subset(dat, conn == 'rACC~vmPFC')
+
+  dat2$group <- factor(dat2$group)
+  contrasts(dat2$group) <- c(-.5, .5)
+  a <- lmer(beta ~ group +  + (1 | pid), REML = FALSE, data = dat2)
+  a.base <- lmer(beta ~ + (1 | pid), REML = FALSE, data = dat2)
+
+  dat3 <- subset(dat, conn == 'L_lPFC~R_lPFC')
+
+  dat3$group <- factor(dat3$group)
+  contrasts(dat3$group) <- c(-.5, .5)
+  b <- lmer(beta ~ group +  + (1 | pid), REML = FALSE, data = dat3)
+  b.base <- lmer(beta ~ + (1 | pid), REML = FALSE, data = dat3)
+
+  print('vmPFC -> rACC')
+  anova(a.base, a)
+  summary(a)
+  print('R_lPFC -> L_lPFC')
+  anova(b.base, b)
+  summary(b)
+
+
+
+  library(tidyR)
+  # Use the reshape function to reshape the dataframe
+  dat2_wide <- reshape(dat2,
+                     timevar = "group",
+                     idvar = "pid",
+                     direction = "wide")
+
+  dat2_wide$delta <- dat2_wide$beta.B - dat2_wide$beta.A
+
+  ggplot2::ggplot(dat2_wide, ggplot2::aes(x = 1, y = delta)) + ggbeeswarm::geom_quasirandom() + theme_bw() + ggplot2::stat_summary(fun = 'mean', geom = 'point', color = 'black') +
+    ggplot2::stat_summary(fun.data= mean_cl_normal, geom = 'pointrange', color = 'black') + labs(x = 'vmPFC -> rACC') + coord_cartesian(x = c(0,2)) +
+    ggsave('delta_dot_vmpfc_racc.png', width = 4, height = 4)
+
+
+  dat3_wide <- reshape(dat3,
+                       timevar = "group",
+                       idvar = "pid",
+                       direction = "wide")
+
+  dat3_wide$delta <- dat3_wide$beta.B - dat3_wide$beta.A
+
+  ggplot2::ggplot(dat3_wide, ggplot2::aes(x = 1, y = delta)) + ggbeeswarm::geom_quasirandom() + theme_bw() + ggplot2::stat_summary(fun = 'mean', geom = 'point', color = 'black') +
+    ggplot2::stat_summary(fun.data= mean_cl_normal, geom = 'pointrange', color = 'black') + labs(x = 'R_lPFC -> L_lPFC') + coord_cartesian(x = c(0,2))
+    ggsave('delta_dot_RL_lPFC.png', width = 4, height = 4)
+
+  }
+
