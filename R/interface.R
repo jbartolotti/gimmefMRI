@@ -480,6 +480,7 @@ compareNetworkConditions <- function(model_dir_A,
 #' @param comparison_dir Path to comparison results folder (or NULL)
 #' @param condition_A_label Label for condition A in plots (default "A")
 #' @param condition_B_label Label for condition B in plots (default "B")
+#' @param group_file Path to CSV file with subject_id and group columns (or NULL)
 #' @param output_dir Custom directory to save figures (NULL for auto-detection)
 #' @param save_figures Logical. If TRUE (default), saves figures as PNG files
 #' @param verbose Logical. If TRUE (default), prints progress messages
@@ -493,6 +494,9 @@ compareNetworkConditions <- function(model_dir_A,
 #'   \item Comparison metrics: Creates plots for Jaccard similarity, edge overlap, strength correlation, etc.
 #'   \item Uses beeswarm plots to show individual data points with mean and 95% CI
 #' }
+#'
+#' If group_file is provided, plots will be stratified by group, showing condition_group
+#' combinations on network metric plots and group categories on comparison metric plots.
 #'
 #' Network metric plots include:
 #' \itemize{
@@ -536,10 +540,11 @@ plotNetworkMetrics <- function(model_dir_A = NULL,
                                comparison_dir = NULL,
                                condition_A_label = "A",
                                condition_B_label = "B",
+                               group_file = NULL,
                                output_dir = NULL,
                                save_figures = TRUE,
                                verbose = TRUE) {
   plotNetworkMetrics_internal(model_dir_A, model_dir_B, comparison_dir,
-                              condition_A_label, condition_B_label,
+                              condition_A_label, condition_B_label, group_file,
                               output_dir, save_figures, verbose)
 }

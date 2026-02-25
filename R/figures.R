@@ -243,6 +243,7 @@ gimme_dotplot <- function(){
 #' @param comparison_dir Path to comparison results folder (or NULL)
 #' @param condition_A_label Label for condition A (default "A")
 #' @param condition_B_label Label for condition B (default "B")
+#' @param group_file Path to CSV with subject_id and group columns (or NULL)
 #' @param output_dir Directory to save figures (NULL for auto-detection)
 #' @param save_figures Logical. If TRUE (default), saves figures to output_dir
 #' @param verbose Logical. If TRUE (default), prints progress messages
@@ -253,6 +254,7 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
                                         comparison_dir = NULL,
                                         condition_A_label = "A",
                                         condition_B_label = "B",
+                                        group_file = NULL,
                                         output_dir = NULL,
                                         save_figures = TRUE,
                                         verbose = TRUE) {
@@ -263,6 +265,17 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
   }
   if (!requireNamespace("ggbeeswarm", quietly = TRUE)) {
     stop("Package 'ggbeeswarm' is required. Install with: install.packages('ggbeeswarm')")
+  }
+  
+  # Load group assignments if provided
+  group_data <- NULL
+  if (!is.null(group_file)) {
+    if (!file.exists(group_file)) {
+      warning(sprintf("Group file not found: %s", group_file))
+    } else {
+      group_data <- read.csv(group_file, stringsAsFactors = FALSE)
+      if (verbose) message(sprintf("Loaded group assignments for %d subjects", nrow(group_data)))
+    }
   }
   
   # Determine output directory
@@ -316,6 +329,20 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
     }
   }
   
+  # Merge with group data if provided
+  if (!is.null(network_data) && !is.null(group_data)) {
+    # Extract subject ID from 'subject' column
+    network_data$subject_id <- as.numeric(network_data$subject)
+    group_data$subject_id <- as.numeric(group_data$subject_id)
+    network_data <- merge(network_data, group_data[, c("subject_id", "group")], 
+                         by = "subject_id", all.x = TRUE)
+    
+    # Create combined condition_group factor for x-axis
+    network_data$condition_group <- paste(network_data$condition_label, 
+                                          network_data$group, sep = "_")
+    if (verbose) message("Merged group assignments with network data")
+  }
+  
   # Generate plots for network-level metrics
   if (!is.null(network_data)) {
     network_metrics <- c("n_edges", "density", "mean_strength", "total_strength",
@@ -331,30 +358,39 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
       modularity = "Modularity"
     )
     
+    # Determine x-axis variable based on whether groups are available
+    x_var <- if (!is.null(group_data) && "condition_group" %in% colnames(network_data)) {
+      "condition_group"
+    } else {
+      "condition_label"
+    }
+    x_label <- if (x_var == "condition_group") "Condition & Group" else "Condition"
+    
     for (metric in network_metrics) {
       if (metric %in% colnames(network_data)) {
         if (verbose) message(sprintf("Generating plot for: %s", metric))
         
-        p <- ggplot2::ggplot(network_data, ggplot2::aes(x = condition_label, y = .data[[metric]])) +
+        p <- ggplot2::ggplot(network_data, ggplot2::aes(x = .data[[x_var]], y = .data[[metric]])) +
           ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
           ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
                                 color = "red", size = 0.8, linewidth = 1) +
           ggplot2::labs(
             title = metric_labels[metric],
-            x = "Condition",
+            x = x_label,
             y = metric_labels[metric]
           ) +
           ggplot2::theme_classic(base_size = 12) +
           ggplot2::theme(
             plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-            axis.text = ggplot2::element_text(color = "black")
+            axis.text = ggplot2::element_text(color = "black"),
+            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1)
           )
         
         plot_list[[metric]] <- p
         
         if (save_figures) {
           filename <- file.path(output_dir, sprintf("network_%s.png", metric))
-          ggplot2::ggsave(filename, p, width = 5, height = 5, dpi = 300)
+          ggplot2::ggsave(filename, p, width = 6, height = 5, dpi = 300)
         }
       }
     }
@@ -371,6 +407,14 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
       comp_data_both <- comp_data[comp_data$has_condition_A & comp_data$has_condition_B, ]
       
       if (nrow(comp_data_both) > 0) {
+        # Merge with group data if provided
+        if (!is.null(group_data)) {
+          comp_data_both$subject_id <- as.numeric(comp_data_both$subject)
+          group_data$subject_id <- as.numeric(group_data$subject_id)
+          comp_data_both <- merge(comp_data_both, group_data[, c("subject_id", "group")], 
+                                 by = "subject_id", all.x = TRUE)
+        }
+        
         comparison_metrics <- c("jaccard_similarity", "edge_overlap_pct",
                                "strength_correlation", "mean_strength_diff")
         
@@ -381,26 +425,52 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
           mean_strength_diff = "Mean Strength Difference"
         )
         
+        # Determine x-axis variable based on whether groups are available
+        x_var_comp <- if (!is.null(group_data) && "group" %in% colnames(comp_data_both)) {
+          "group"
+        } else {
+          NA
+        }
+        
         for (metric in comparison_metrics) {
           if (metric %in% colnames(comp_data_both)) {
             if (verbose) message(sprintf("Generating plot for: %s", metric))
             
-            p <- ggplot2::ggplot(comp_data_both, ggplot2::aes(x = 1, y = .data[[metric]])) +
-              ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
-              ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
-                                    color = "red", size = 0.8, linewidth = 1) +
-              ggplot2::labs(
-                title = comparison_labels[metric],
-                x = sprintf("%s vs %s", condition_A_label, condition_B_label),
-                y = comparison_labels[metric]
-              ) +
-              ggplot2::theme_classic(base_size = 12) +
-              ggplot2::theme(
-                plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-                axis.text = ggplot2::element_text(color = "black"),
-                axis.text.x = ggplot2::element_blank(),
-                axis.ticks.x = ggplot2::element_blank()
-              )
+            if (!is.na(x_var_comp)) {
+              # Plot with groups on x-axis
+              p <- ggplot2::ggplot(comp_data_both, ggplot2::aes(x = .data[[x_var_comp]], y = .data[[metric]])) +
+                ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
+                ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
+                                      color = "red", size = 0.8, linewidth = 1) +
+                ggplot2::labs(
+                  title = comparison_labels[metric],
+                  x = "Group",
+                  y = comparison_labels[metric]
+                ) +
+                ggplot2::theme_classic(base_size = 12) +
+                ggplot2::theme(
+                  plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+                  axis.text = ggplot2::element_text(color = "black")
+                )
+            } else {
+              # Plot without groups (all subjects together)
+              p <- ggplot2::ggplot(comp_data_both, ggplot2::aes(x = 1, y = .data[[metric]])) +
+                ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
+                ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
+                                      color = "red", size = 0.8, linewidth = 1) +
+                ggplot2::labs(
+                  title = comparison_labels[metric],
+                  x = sprintf("%s vs %s", condition_A_label, condition_B_label),
+                  y = comparison_labels[metric]
+                ) +
+                ggplot2::theme_classic(base_size = 12) +
+                ggplot2::theme(
+                  plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+                  axis.text = ggplot2::element_text(color = "black"),
+                  axis.text.x = ggplot2::element_blank(),
+                  axis.ticks.x = ggplot2::element_blank()
+                )
+            }
             
             plot_list[[paste0("comparison_", metric)]] <- p
             
