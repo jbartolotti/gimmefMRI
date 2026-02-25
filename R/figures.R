@@ -485,35 +485,61 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
         if ("edges_only_A" %in% colnames(comp_data_both) && 
             "edges_only_B" %in% colnames(comp_data_both)) {
           
-          # Reshape data for plotting
-          edge_diff_data <- data.frame(
-            subject = rep(comp_data_both$subject, 2),
-            condition = rep(c(sprintf("Only %s", condition_A_label), 
-                             sprintf("Only %s", condition_B_label)), 
-                           each = nrow(comp_data_both)),
-            n_edges = c(comp_data_both$edges_only_A, comp_data_both$edges_only_B)
-          )
+          # Reshape data for plotting, incorporating groups if available
+          if (!is.na(x_var_comp) && "group" %in% colnames(comp_data_both)) {
+            # Create condition_group combinations for x-axis
+            edge_diff_data <- data.frame(
+              subject = rep(comp_data_both$subject, 2),
+              condition_group = rep(NA, nrow(comp_data_both) * 2),
+              n_edges = c(comp_data_both$edges_only_A, comp_data_both$edges_only_B)
+            )
+            
+            # Fill condition_group for first half (Only A)
+            edge_diff_data$condition_group[1:nrow(comp_data_both)] <- 
+              paste(sprintf("Only %s", condition_A_label), 
+                    comp_data_both$group, sep = "_")
+            
+            # Fill condition_group for second half (Only B)
+            edge_diff_data$condition_group[(nrow(comp_data_both) + 1):nrow(edge_diff_data)] <- 
+              paste(sprintf("Only %s", condition_B_label), 
+                    comp_data_both$group, sep = "_")
+            
+            x_axis_var <- "condition_group"
+            x_axis_label <- sprintf("%s & Group", "Condition")
+          } else {
+            # Without groups, just condition
+            edge_diff_data <- data.frame(
+              subject = rep(comp_data_both$subject, 2),
+              condition = rep(c(sprintf("Only %s", condition_A_label), 
+                               sprintf("Only %s", condition_B_label)), 
+                             each = nrow(comp_data_both)),
+              n_edges = c(comp_data_both$edges_only_A, comp_data_both$edges_only_B)
+            )
+            x_axis_var <- "condition"
+            x_axis_label <- "Condition"
+          }
           
-          p <- ggplot2::ggplot(edge_diff_data, ggplot2::aes(x = condition, y = n_edges)) +
+          p <- ggplot2::ggplot(edge_diff_data, ggplot2::aes(x = .data[[x_axis_var]], y = n_edges)) +
             ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
             ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
                                   color = "red", size = 0.8, linewidth = 1) +
             ggplot2::labs(
               title = "Unique Edges per Condition",
-              x = "Condition",
+              x = x_axis_label,
               y = "Number of Unique Edges"
             ) +
             ggplot2::theme_classic(base_size = 12) +
             ggplot2::theme(
               plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-              axis.text = ggplot2::element_text(color = "black")
+              axis.text = ggplot2::element_text(color = "black"),
+              axis.text.x = ggplot2::element_text(angle = 45, hjust = 1)
             )
           
           plot_list[["comparison_unique_edges"]] <- p
           
           if (save_figures) {
             filename <- file.path(output_dir, "comparison_unique_edges.png")
-            ggplot2::ggsave(filename, p, width = 5, height = 5, dpi = 300)
+            ggplot2::ggsave(filename, p, width = 6, height = 5, dpi = 300)
           }
         }
       } else {
