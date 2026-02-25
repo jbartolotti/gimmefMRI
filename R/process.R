@@ -334,3 +334,254 @@ getTimecourse_OneSub_OneROI <- function(fileConn, subname, runname, roiname,
   if(!is.na(fileConn)){write(c(line_3dresample, line_3dcalc, line_3dmaskave), fileConn, append = TRUE)}
   return(list(subfunc_loc = subfunc_loc, roisub_loc = roisub_loc, roi_loc = roi_loc, timecourse_loc = timecourse_loc))
 }
+
+
+#' Compute Network Metrics from GIMME Model Output (Internal Implementation)
+#'
+#' Computes node-level and network-level graph metrics for individual networks
+#' based on GIMME model output. Saves individual subject files and a combined summary.
+#' This is the internal implementation. Use the wrapper in interface.R for exported function.
+#'
+#' @param model_dir Path to GIMME model output folder (should contain indivPathEstimates.csv)
+#' @param ignore_lags Logical. If TRUE (default), excludes lagged connections from analysis
+#' @param save_individual Logical. If TRUE (default), saves individual network metrics to individual/ folder
+#' @param save_summary Logical. If TRUE (default), saves combined summary file to model_dir
+#' @param verbose Logical. If TRUE (default), prints progress messages
+#'
+#' @return A list containing:
+#'   \item{node_metrics}{Data frame with node-level metrics for all subjects}
+#'   \item{network_metrics}{Data frame with network-level metrics for all subjects}
+computeNetworkMetrics_internal <- function(model_dir,
+                                   ignore_lags = TRUE,
+                                   save_individual = TRUE,
+                                   save_summary = TRUE,
+                                   verbose = TRUE) {
+
+  # Check if igraph is available
+  if (!requireNamespace("igraph", quietly = TRUE)) {
+    stop("Package 'igraph' is required but not installed. Please install it with: install.packages('igraph')")
+  }
+
+  # Read indivPathEstimates.csv
+  path_file <- file.path(model_dir, "indivPathEstimates.csv")
+  if (!file.exists(path_file)) {
+    stop(sprintf("File not found: %s", path_file))
+  }
+
+  if (verbose) message(sprintf("Reading path estimates from: %s", path_file))
+  path_data <- read.csv(path_file, stringsAsFactors = FALSE)
+
+  # Filter out lagged connections if requested
+  if (ignore_lags) {
+    # Check if lhs or rhs contains "lag"
+    original_rows <- nrow(path_data)
+    path_data <- path_data[!grepl("lag", path_data$lhs, ignore.case = TRUE) &
+                           !grepl("lag", path_data$rhs, ignore.case = TRUE), ]
+    if (verbose) message(sprintf("Filtered out %d lagged connections", original_rows - nrow(path_data)))
+  }
+
+  # Get unique subject-condition combinations
+  subjects <- unique(path_data$file)
+  if (verbose) message(sprintf("Found %d unique subject-condition combinations", length(subjects)))
+
+  # Initialize storage for results
+  all_node_metrics <- list()
+  all_network_metrics <- list()
+
+  # Process each subject-condition
+  for (subj in subjects) {
+    if (verbose) message(sprintf("Processing: %s", subj))
+
+    # Extract edges for this subject
+    subj_edges <- path_data[path_data$file == subj, ]
+
+    # Parse subject and condition
+    parsed <- parseSubjectCondition(subj)
+
+    # Build network and compute metrics
+    metrics <- computeSubjectNetworkMetrics(subj_edges, parsed$file, parsed$subject, parsed$condition)
+
+    # Save individual file if requested
+    if (save_individual && !is.null(metrics$node_metrics)) {
+      individual_dir <- file.path(model_dir, "individual")
+      if (!dir.exists(individual_dir)) {
+        dir.create(individual_dir, showWarnings = FALSE)
+      }
+      individual_file <- file.path(individual_dir, sprintf("%sNetworkMetrics.csv", parsed$file))
+      write.csv(metrics$node_metrics, individual_file, row.names = FALSE)
+      if (verbose) message(sprintf("  Saved individual metrics to: %s", individual_file))
+    }
+
+    # Store results
+    all_node_metrics[[subj]] <- metrics$node_metrics
+    all_network_metrics[[subj]] <- metrics$network_metrics
+  }
+
+  # Combine all results
+  combined_node_metrics <- do.call(rbind, all_node_metrics)
+  combined_network_metrics <- do.call(rbind, all_network_metrics)
+
+  # Save summary file if requested
+  if (save_summary) {
+    summary_file <- file.path(model_dir, "networkMetrics_summary.csv")
+    write.csv(combined_network_metrics, summary_file, row.names = FALSE)
+    if (verbose) message(sprintf("Saved summary metrics to: %s", summary_file))
+  }
+
+  return(list(
+    node_metrics = combined_node_metrics,
+    network_metrics = combined_network_metrics
+  ))
+}
+
+
+#' Parse Subject and Condition from File Identifier
+#'
+#' @param file_id Character string like "2003_A" or "2003"
+#' @return List with file, subject, and condition
+parseSubjectCondition <- function(file_id) {
+  parts <- strsplit(file_id, "_")[[1]]
+
+  if (length(parts) > 1) {
+    # Has condition
+    subject <- parts[1]
+    condition <- parts[2]
+  } else {
+    # No condition
+    subject <- parts[1]
+    condition <- NA
+  }
+
+  return(list(
+    file = file_id,
+    subject = subject,
+    condition = condition
+  ))
+}
+
+
+#' Compute Network Metrics for a Single Subject
+#'
+#' @param edges Data frame with columns: lhs, rhs, beta
+#' @param file_id Full file identifier (e.g., "2003_A")
+#' @param subject Subject ID
+#' @param condition Condition (or NA)
+#' @return List with node_metrics and network_metrics data frames
+computeSubjectNetworkMetrics <- function(edges, file_id, subject, condition) {
+
+  # Check if there are any edges
+  if (nrow(edges) == 0) {
+    warning(sprintf("No edges found for %s. Returning NA metrics.", file_id))
+    return(list(
+      node_metrics = data.frame(
+        file = file_id,
+        subject = subject,
+        condition = condition,
+        node = NA,
+        in_degree = NA,
+        out_degree = NA,
+        in_strength = NA,
+        out_strength = NA,
+        betweenness = NA,
+        clustering = NA
+      ),
+      network_metrics = data.frame(
+        file = file_id,
+        subject = subject,
+        condition = condition,
+        n_edges = 0,
+        density = NA,
+        mean_strength = NA,
+        total_strength = NA,
+        global_efficiency = NA,
+        mean_clustering = NA,
+        modularity = NA
+      )
+    ))
+  }
+
+  # Get all unique nodes
+  all_nodes <- unique(c(edges$lhs, edges$rhs))
+
+  # Build directed weighted graph
+  g <- igraph::graph_from_data_frame(
+    d = edges[, c("rhs", "lhs", "beta")],  # Note: rhs -> lhs based on your description
+    directed = TRUE,
+    vertices = all_nodes
+  )
+
+  # Rename edge attribute to 'weight'
+  igraph::E(g)$weight <- abs(igraph::E(g)$beta)  # Use absolute values for weights
+  g <- igraph::delete_edge_attr(g, "beta")
+
+  # Compute node-level metrics
+  node_metrics <- data.frame(
+    file = file_id,
+    subject = subject,
+    condition = condition,
+    node = igraph::V(g)$name,
+    in_degree = igraph::degree(g, mode = "in"),
+    out_degree = igraph::degree(g, mode = "out"),
+    in_strength = igraph::strength(g, mode = "in"),
+    out_strength = igraph::strength(g, mode = "out"),
+    betweenness = tryCatch(igraph::betweenness(g, directed = TRUE, weights = NA),
+                           error = function(e) rep(NA, igraph::vcount(g))),
+    clustering = tryCatch(igraph::transitivity(g, type = "local", isolates = "zero"),
+                          error = function(e) rep(NA, igraph::vcount(g)))
+  )
+
+  # Compute network-level metrics
+  n_edges <- igraph::ecount(g)
+  n_nodes <- igraph::vcount(g)
+  density <- igraph::edge_density(g)
+  total_strength <- sum(igraph::E(g)$weight)
+  mean_strength <- mean(igraph::E(g)$weight)
+
+  # Global efficiency
+  global_efficiency <- tryCatch({
+    # Compute shortest paths with weights (using 1/weight as distance)
+    if (n_edges > 0 && all(igraph::E(g)$weight > 0)) {
+      distances <- igraph::distances(g, weights = 1/igraph::E(g)$weight, mode = "out")
+      distances[is.infinite(distances)] <- 0
+      if (n_nodes > 1) {
+        sum(1/distances[distances > 0]) / (n_nodes * (n_nodes - 1))
+      } else {
+        NA
+      }
+    } else {
+      NA
+    }
+  }, error = function(e) NA)
+
+  # Mean clustering coefficient
+  mean_clustering <- tryCatch({
+    local_cc <- igraph::transitivity(g, type = "local", isolates = "zero")
+    mean(local_cc, na.rm = TRUE)
+  }, error = function(e) NA)
+
+  # Modularity (using Louvain algorithm)
+  modularity <- tryCatch({
+    # Convert to undirected for modularity
+    g_undir <- igraph::as.undirected(g, mode = "collapse")
+    clusters <- igraph::cluster_louvain(g_undir, weights = igraph::E(g_undir)$weight)
+    igraph::modularity(clusters)
+  }, error = function(e) NA)
+
+  network_metrics <- data.frame(
+    file = file_id,
+    subject = subject,
+    condition = condition,
+    n_edges = n_edges,
+    density = density,
+    mean_strength = mean_strength,
+    total_strength = total_strength,
+    global_efficiency = global_efficiency,
+    mean_clustering = mean_clustering,
+    modularity = modularity
+  )
+
+  return(list(
+    node_metrics = node_metrics,
+    network_metrics = network_metrics
+  ))
+}

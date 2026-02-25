@@ -361,3 +361,40 @@ gimmefMRI_figures_old <- function(modeldir = '//kumc.edu/data/Research/Hoglund/B
 #)
 }
 #gimmefMRI(datadir = '~/R-Drive/Bartolotti_J/gimme_toolkit/demodat', savedir = '~/R-Drive/Bartolotti_J/gimme_toolkit/models')
+
+
+#' Compute Network Metrics from GIMME Model Output
+#'
+#' Computes node-level and network-level graph metrics for individual networks
+#' based on GIMME model output. Saves individual subject files and a combined summary.
+#'
+#' @param model_dir Path to GIMME model output folder (should contain indivPathEstimates.csv)
+#' @param ignore_lags Logical. If TRUE (default), excludes lagged connections from analysis
+#' @param save_individual Logical. If TRUE (default), saves individual network metrics to individual/ folder
+#' @param save_summary Logical. If TRUE (default), saves combined summary file to model_dir
+#' @param verbose Logical. If TRUE (default), prints progress messages
+#'
+#' @return A list containing:
+#'   \item{node_metrics}{Data frame with node-level metrics for all subjects}
+#'   \item{network_metrics}{Data frame with network-level metrics for all subjects}
+#'
+#' @examples
+#' \dontrun{
+#' # Compute metrics for a GIMME model
+#' results <- computeNetworkMetrics("path/to/model_dir")
+#'
+#' # View network-level summary
+#' head(results$network_metrics)
+#'
+#' # View node-level details
+#' head(results$node_metrics)
+#' }
+#'
+#' @export
+computeNetworkMetrics <- function(model_dir,
+                                   ignore_lags = TRUE,
+                                   save_individual = TRUE,
+                                   save_summary = TRUE,
+                                   verbose = TRUE) {
+  computeNetworkMetrics_internal(model_dir, ignore_lags, save_individual, save_summary, verbose)
+}
