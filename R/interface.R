@@ -398,3 +398,148 @@ computeNetworkMetrics <- function(model_dir,
                                    verbose = TRUE) {
   computeNetworkMetrics_internal(model_dir, ignore_lags, save_individual, save_summary, verbose)
 }
+
+
+#' Compare Network Conditions for Within-Subject Analysis
+#'
+#' Computes within-subject network comparison metrics between two conditions
+#' (e.g., ON vs OFF medication). Supports both single-model (conditions in same folder)
+#' and dual-model (conditions in separate folders) designs.
+#'
+#' @param model_dir_A Path to first condition model folder, or single model folder containing both conditions
+#' @param model_dir_B Path to second condition model folder (NULL if using single model folder)
+#' @param condition_A Condition identifier for first network (default "A")
+#' @param condition_B Condition identifier for second network (default "B")
+#' @param ignore_lags Logical. If TRUE (default), excludes lagged connections from analysis
+#' @param save_output Logical. If TRUE (default), saves comparison files
+#' @param output_dir Custom output directory path (NULL for auto-generated path in parent of model_dir_A)
+#' @param verbose Logical. If TRUE (default), prints progress messages
+#'
+#' @return A list containing:
+#'   \item{comparison_summary}{Data frame with comparison metrics for all subjects}
+#'   \item{individual_comparisons}{List of detailed edge-by-edge comparisons per subject}
+#'
+#' @details
+#' The function computes the following within-subject metrics:
+#' \itemize{
+#'   \item Jaccard similarity - proportion of edges shared between conditions
+#'   \item Edge overlap - count and percentage of shared edges
+#'   \item Edges unique to each condition
+#'   \item Strength correlation - correlation of edge weights for shared connections
+#'   \item Mean strength difference - average absolute difference in edge weights
+#'   \item Strength distribution statistics (mean, SD) for each condition
+#' }
+#'
+#' Output files are saved to a comparison folder with individual files and summary:
+#' \itemize{
+#'   \item comparison_[modelA]_vs_[modelB]/individual/[subject]_comparison.csv
+#'   \item comparison_[modelA]_vs_[modelB]/comparison_summary.csv
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Dual model case (conditions in separate folders)
+#' results <- compareNetworkConditions(
+#'   model_dir_A = "models/4mod_AT1T2",
+#'   model_dir_B = "models/4mod_BT1T2"
+#' )
+#'
+#' # Single model case (conditions in same folder)
+#' results <- compareNetworkConditions(
+#'   model_dir_A = "models/combined_model",
+#'   model_dir_B = NULL,
+#'   condition_A = "ON",
+#'   condition_B = "OFF"
+#' )
+#'
+#' # View summary
+#' head(results$comparison_summary)
+#' }
+#'
+#' @export
+compareNetworkConditions <- function(model_dir_A,
+                                     model_dir_B = NULL,
+                                     condition_A = "A",
+                                     condition_B = "B",
+                                     ignore_lags = TRUE,
+                                     save_output = TRUE,
+                                     output_dir = NULL,
+                                     verbose = TRUE) {
+  compareNetworkConditions_internal(model_dir_A, model_dir_B, condition_A, condition_B,
+                                   ignore_lags, save_output, output_dir, verbose)
+}
+
+
+#' Plot Network Metrics Across Conditions
+#'
+#' Generates visualizations of network metrics showing distributions across conditions
+#' and comparison metrics using beeswarm plots. Creates one figure per metric.
+#'
+#' @param model_dir_A Path to first condition model folder (or NULL if only plotting comparisons)
+#' @param model_dir_B Path to second condition model folder (or NULL)
+#' @param comparison_dir Path to comparison results folder (or NULL)
+#' @param condition_A_label Label for condition A in plots (default "A")
+#' @param condition_B_label Label for condition B in plots (default "B")
+#' @param output_dir Custom directory to save figures (NULL for auto-detection)
+#' @param save_figures Logical. If TRUE (default), saves figures as PNG files
+#' @param verbose Logical. If TRUE (default), prints progress messages
+#'
+#' @return Invisible list of ggplot objects
+#'
+#' @details
+#' This function generates publication-ready figures for network metrics:
+#' \itemize{
+#'   \item Network-level metrics: Creates plots comparing conditions A and B (if both provided)
+#'   \item Comparison metrics: Creates plots for Jaccard similarity, edge overlap, strength correlation, etc.
+#'   \item Uses beeswarm plots to show individual data points with mean and 95% CI
+#' }
+#'
+#' Network metric plots include:
+#' \itemize{
+#'   \item Number of edges
+#'   \item Network density
+#'   \item Mean/total edge strength
+#'   \item Global efficiency
+#'   \item Mean clustering coefficient
+#'   \item Modularity
+#' }
+#'
+#' Comparison plots include (when comparison_dir provided):
+#' \itemize{
+#'   \item Jaccard similarity
+#'   \item Edge overlap percentage
+#'   \item Strength correlation
+#'   \item Mean strength difference
+#'   \item Unique edges per condition
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Plot both conditions and comparisons
+#' plotNetworkMetrics(
+#'   model_dir_A = "models/4mod_AT1T2",
+#'   model_dir_B = "models/4mod_BT1T2",
+#'   comparison_dir = "models/comparison_4mod_AT1T2_vs_4mod_BT1T2",
+#'   condition_A_label = "ON medication",
+#'   condition_B_label = "OFF medication"
+#' )
+#'
+#' # Plot only comparison metrics
+#' plotNetworkMetrics(
+#'   comparison_dir = "models/comparison_4mod_AT1T2_vs_4mod_BT1T2"
+#' )
+#' }
+#'
+#' @export
+plotNetworkMetrics <- function(model_dir_A = NULL,
+                               model_dir_B = NULL,
+                               comparison_dir = NULL,
+                               condition_A_label = "A",
+                               condition_B_label = "B",
+                               output_dir = NULL,
+                               save_figures = TRUE,
+                               verbose = TRUE) {
+  plotNetworkMetrics_internal(model_dir_A, model_dir_B, comparison_dir,
+                              condition_A_label, condition_B_label,
+                              output_dir, save_figures, verbose)
+}

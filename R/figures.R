@@ -232,3 +232,229 @@ gimme_dotplot <- function(){
 
   }
 
+
+#' Plot Network Metrics Across Conditions (Internal Implementation)
+#'
+#' Generates ggplot2 visualizations of network metrics, showing distributions
+#' across conditions and comparison metrics using beeswarm plots.
+#'
+#' @param model_dir_A Path to first condition model folder (or NULL)
+#' @param model_dir_B Path to second condition model folder (or NULL)
+#' @param comparison_dir Path to comparison results folder (or NULL)
+#' @param condition_A_label Label for condition A (default "A")
+#' @param condition_B_label Label for condition B (default "B")
+#' @param output_dir Directory to save figures (NULL for auto-detection)
+#' @param save_figures Logical. If TRUE (default), saves figures to output_dir
+#' @param verbose Logical. If TRUE (default), prints progress messages
+#'
+#' @return List of ggplot objects
+plotNetworkMetrics_internal <- function(model_dir_A = NULL,
+                                        model_dir_B = NULL,
+                                        comparison_dir = NULL,
+                                        condition_A_label = "A",
+                                        condition_B_label = "B",
+                                        output_dir = NULL,
+                                        save_figures = TRUE,
+                                        verbose = TRUE) {
+  
+  # Check required packages
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required. Install with: install.packages('ggplot2')")
+  }
+  if (!requireNamespace("ggbeeswarm", quietly = TRUE)) {
+    stop("Package 'ggbeeswarm' is required. Install with: install.packages('ggbeeswarm')")
+  }
+  
+  # Determine output directory
+  if (is.null(output_dir)) {
+    if (!is.null(comparison_dir)) {
+      output_dir <- file.path(comparison_dir, "figures")
+    } else if (!is.null(model_dir_A)) {
+      output_dir <- file.path(dirname(model_dir_A), "network_metric_figures")
+    } else if (!is.null(model_dir_B)) {
+      output_dir <- file.path(dirname(model_dir_B), "network_metric_figures")
+    } else {
+      stop("At least one of model_dir_A, model_dir_B, or comparison_dir must be provided")
+    }
+  }
+  
+  if (save_figures) {
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+    if (verbose) message(sprintf("Saving figures to: %s", output_dir))
+  }
+  
+  plot_list <- list()
+  
+  # Load network metrics data from both conditions
+  network_data <- NULL
+  
+  if (!is.null(model_dir_A)) {
+    metrics_file_A <- file.path(model_dir_A, "networkMetrics_summary.csv")
+    if (file.exists(metrics_file_A)) {
+      data_A <- read.csv(metrics_file_A, stringsAsFactors = FALSE)
+      data_A$condition_label <- condition_A_label
+      network_data <- data_A
+      if (verbose) message(sprintf("Loaded %d subjects from condition A", nrow(data_A)))
+    } else {
+      warning(sprintf("File not found: %s", metrics_file_A))
+    }
+  }
+  
+  if (!is.null(model_dir_B)) {
+    metrics_file_B <- file.path(model_dir_B, "networkMetrics_summary.csv")
+    if (file.exists(metrics_file_B)) {
+      data_B <- read.csv(metrics_file_B, stringsAsFactors = FALSE)
+      data_B$condition_label <- condition_B_label
+      if (is.null(network_data)) {
+        network_data <- data_B
+      } else {
+        network_data <- rbind(network_data, data_B)
+      }
+      if (verbose) message(sprintf("Loaded %d subjects from condition B", nrow(data_B)))
+    } else {
+      warning(sprintf("File not found: %s", metrics_file_B))
+    }
+  }
+  
+  # Generate plots for network-level metrics
+  if (!is.null(network_data)) {
+    network_metrics <- c("n_edges", "density", "mean_strength", "total_strength",
+                        "global_efficiency", "mean_clustering", "modularity")
+    
+    metric_labels <- c(
+      n_edges = "Number of Edges",
+      density = "Network Density",
+      mean_strength = "Mean Edge Strength",
+      total_strength = "Total Network Strength",
+      global_efficiency = "Global Efficiency",
+      mean_clustering = "Mean Clustering Coefficient",
+      modularity = "Modularity"
+    )
+    
+    for (metric in network_metrics) {
+      if (metric %in% colnames(network_data)) {
+        if (verbose) message(sprintf("Generating plot for: %s", metric))
+        
+        p <- ggplot2::ggplot(network_data, ggplot2::aes(x = condition_label, y = .data[[metric]])) +
+          ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
+          ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
+                                color = "red", size = 0.8, linewidth = 1) +
+          ggplot2::labs(
+            title = metric_labels[metric],
+            x = "Condition",
+            y = metric_labels[metric]
+          ) +
+          ggplot2::theme_classic(base_size = 12) +
+          ggplot2::theme(
+            plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+            axis.text = ggplot2::element_text(color = "black")
+          )
+        
+        plot_list[[metric]] <- p
+        
+        if (save_figures) {
+          filename <- file.path(output_dir, sprintf("network_%s.png", metric))
+          ggplot2::ggsave(filename, p, width = 5, height = 5, dpi = 300)
+        }
+      }
+    }
+  }
+  
+  # Load and plot comparison metrics
+  if (!is.null(comparison_dir)) {
+    comparison_file <- file.path(comparison_dir, "comparison_summary.csv")
+    if (file.exists(comparison_file)) {
+      comp_data <- read.csv(comparison_file, stringsAsFactors = FALSE)
+      if (verbose) message(sprintf("Loaded comparison data for %d subjects", nrow(comp_data)))
+      
+      # Filter to subjects with both conditions
+      comp_data_both <- comp_data[comp_data$has_condition_A & comp_data$has_condition_B, ]
+      
+      if (nrow(comp_data_both) > 0) {
+        comparison_metrics <- c("jaccard_similarity", "edge_overlap_pct",
+                               "strength_correlation", "mean_strength_diff")
+        
+        comparison_labels <- c(
+          jaccard_similarity = "Jaccard Similarity",
+          edge_overlap_pct = "Edge Overlap (%)",
+          strength_correlation = "Strength Correlation",
+          mean_strength_diff = "Mean Strength Difference"
+        )
+        
+        for (metric in comparison_metrics) {
+          if (metric %in% colnames(comp_data_both)) {
+            if (verbose) message(sprintf("Generating plot for: %s", metric))
+            
+            p <- ggplot2::ggplot(comp_data_both, ggplot2::aes(x = 1, y = .data[[metric]])) +
+              ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
+              ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
+                                    color = "red", size = 0.8, linewidth = 1) +
+              ggplot2::labs(
+                title = comparison_labels[metric],
+                x = sprintf("%s vs %s", condition_A_label, condition_B_label),
+                y = comparison_labels[metric]
+              ) +
+              ggplot2::theme_classic(base_size = 12) +
+              ggplot2::theme(
+                plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+                axis.text = ggplot2::element_text(color = "black"),
+                axis.text.x = ggplot2::element_blank(),
+                axis.ticks.x = ggplot2::element_blank()
+              )
+            
+            plot_list[[paste0("comparison_", metric)]] <- p
+            
+            if (save_figures) {
+              filename <- file.path(output_dir, sprintf("comparison_%s.png", metric))
+              ggplot2::ggsave(filename, p, width = 5, height = 5, dpi = 300)
+            }
+          }
+        }
+        
+        # Additional comparison plot: edges only in A vs only in B
+        if ("edges_only_A" %in% colnames(comp_data_both) && 
+            "edges_only_B" %in% colnames(comp_data_both)) {
+          
+          # Reshape data for plotting
+          edge_diff_data <- data.frame(
+            subject = rep(comp_data_both$subject, 2),
+            condition = rep(c(sprintf("Only %s", condition_A_label), 
+                             sprintf("Only %s", condition_B_label)), 
+                           each = nrow(comp_data_both)),
+            n_edges = c(comp_data_both$edges_only_A, comp_data_both$edges_only_B)
+          )
+          
+          p <- ggplot2::ggplot(edge_diff_data, ggplot2::aes(x = condition, y = n_edges)) +
+            ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
+            ggplot2::stat_summary(fun.data = mean_cl_normal, geom = "pointrange",
+                                  color = "red", size = 0.8, linewidth = 1) +
+            ggplot2::labs(
+              title = "Unique Edges per Condition",
+              x = "Condition",
+              y = "Number of Unique Edges"
+            ) +
+            ggplot2::theme_classic(base_size = 12) +
+            ggplot2::theme(
+              plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+              axis.text = ggplot2::element_text(color = "black")
+            )
+          
+          plot_list[["comparison_unique_edges"]] <- p
+          
+          if (save_figures) {
+            filename <- file.path(output_dir, "comparison_unique_edges.png")
+            ggplot2::ggsave(filename, p, width = 5, height = 5, dpi = 300)
+          }
+        }
+      } else {
+        warning("No subjects with both conditions found in comparison data")
+      }
+    } else {
+      warning(sprintf("Comparison file not found: %s", comparison_file))
+    }
+  }
+  
+  if (verbose) message(sprintf("Generated %d plots", length(plot_list)))
+  
+  return(invisible(plot_list))
+}

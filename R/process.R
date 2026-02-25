@@ -585,3 +585,299 @@ computeSubjectNetworkMetrics <- function(edges, file_id, subject, condition) {
     network_metrics = network_metrics
   ))
 }
+
+
+#' Compare Network Conditions (Internal Implementation)
+#'
+#' Computes within-subject network comparison metrics between two conditions
+#' (e.g., ON vs OFF medication). Handles both single-model and dual-model cases.
+#'
+#' @param model_dir_A Path to first condition model (or single model with both)
+#' @param model_dir_B Path to second condition (NULL if single model)
+#' @param condition_A Condition identifier for first network (default "A")
+#' @param condition_B Condition identifier for second network (default "B")
+#' @param ignore_lags Logical. If TRUE (default), excludes lagged connections
+#' @param save_output Logical. If TRUE (default), saves output files
+#' @param output_dir Where to save results (NULL for auto-generated path)
+#' @param verbose Logical. If TRUE (default), prints progress messages
+#'
+#' @return A list containing comparison_summary and individual_comparisons data frames
+compareNetworkConditions_internal <- function(model_dir_A,
+                                              model_dir_B = NULL,
+                                              condition_A = "A",
+                                              condition_B = "B",
+                                              ignore_lags = TRUE,
+                                              save_output = TRUE,
+                                              output_dir = NULL,
+                                              verbose = TRUE) {
+  
+  # Determine output directory
+  if (is.null(output_dir)) {
+    if (!is.null(model_dir_B)) {
+      # Dual model case: create comparison folder in parent of model_dir_A
+      parent_dir <- dirname(model_dir_A)
+      dir_A_name <- basename(model_dir_A)
+      dir_B_name <- basename(model_dir_B)
+      output_dir <- file.path(parent_dir, sprintf("comparison_%s_vs_%s", dir_A_name, dir_B_name))
+    } else {
+      # Single model case: create comparison folder in parent
+      parent_dir <- dirname(model_dir_A)
+      dir_name <- basename(model_dir_A)
+      output_dir <- file.path(parent_dir, sprintf("comparison_%s_%s_vs_%s", dir_name, condition_A, condition_B))
+    }
+  }
+  
+  if (verbose) message(sprintf("Output directory: %s", output_dir))
+  
+  # Read path estimates from both conditions
+  if (!is.null(model_dir_B)) {
+    # Dual model case
+    if (verbose) message("Reading from dual model folders...")
+    path_file_A <- file.path(model_dir_A, "indivPathEstimates.csv")
+    path_file_B <- file.path(model_dir_B, "indivPathEstimates.csv")
+    
+    if (!file.exists(path_file_A)) stop(sprintf("File not found: %s", path_file_A))
+    if (!file.exists(path_file_B)) stop(sprintf("File not found: %s", path_file_B))
+    
+    data_A <- read.csv(path_file_A, stringsAsFactors = FALSE)
+    data_B <- read.csv(path_file_B, stringsAsFactors = FALSE)
+    
+  } else {
+    # Single model case
+    if (verbose) message("Reading from single model folder...")
+    path_file <- file.path(model_dir_A, "indivPathEstimates.csv")
+    
+    if (!file.exists(path_file)) stop(sprintf("File not found: %s", path_file))
+    
+    all_data <- read.csv(path_file, stringsAsFactors = FALSE)
+    
+    # Split by condition
+    data_A <- all_data[grepl(sprintf("_%s$", condition_A), all_data$file), ]
+    data_B <- all_data[grepl(sprintf("_%s$", condition_B), all_data$file), ]
+  }
+  
+  # Filter out lagged connections if requested
+  if (ignore_lags) {
+    original_A <- nrow(data_A)
+    original_B <- nrow(data_B)
+    data_A <- data_A[!grepl("lag", data_A$lhs, ignore.case = TRUE) & 
+                     !grepl("lag", data_A$rhs, ignore.case = TRUE), ]
+    data_B <- data_B[!grepl("lag", data_B$lhs, ignore.case = TRUE) & 
+                     !grepl("lag", data_B$rhs, ignore.case = TRUE), ]
+    if (verbose) message(sprintf("Filtered %d lagged connections from condition A, %d from condition B",
+                                 original_A - nrow(data_A), original_B - nrow(data_B)))
+  }
+  
+  # Extract subject IDs from both conditions
+  subjects_A <- unique(data_A$file)
+  subjects_B <- unique(data_B$file)
+  
+  # Parse to get base subject IDs
+  parse_subjects <- function(file_ids, condition) {
+    base_ids <- sapply(file_ids, function(x) {
+      parsed <- parseSubjectCondition(x)
+      return(parsed$subject)
+    })
+    return(data.frame(file = file_ids, subject = base_ids, stringsAsFactors = FALSE))
+  }
+  
+  subj_map_A <- parse_subjects(subjects_A, condition_A)
+  subj_map_B <- parse_subjects(subjects_B, condition_B)
+  
+  # Get all unique subject IDs
+  all_subjects <- unique(c(subj_map_A$subject, subj_map_B$subject))
+  
+  if (verbose) message(sprintf("Found %d subjects in condition A, %d in condition B, %d total unique",
+                               nrow(subj_map_A), nrow(subj_map_B), length(all_subjects)))
+  
+  # Initialize storage
+  comparison_results <- list()
+  individual_comparisons <- list()
+  
+  # Process each subject
+  for (subj_id in all_subjects) {
+    if (verbose) message(sprintf("Processing subject: %s", subj_id))
+    
+    # Get file IDs for this subject in each condition
+    file_A <- subj_map_A$file[subj_map_A$subject == subj_id]
+    file_B <- subj_map_B$file[subj_map_B$subject == subj_id]
+    
+    # Check if subject exists in both conditions
+    has_A <- length(file_A) > 0
+    has_B <- length(file_B) > 0
+    
+    if (!has_A && !has_B) next  # Skip if somehow neither (shouldn't happen)
+    
+    # Compute comparison metrics
+    comp_result <- compareSubjectNetworks(
+      subj_id = subj_id,
+      edges_A = if (has_A) data_A[data_A$file == file_A[1], ] else NULL,
+      edges_B = if (has_B) data_B[data_B$file == file_B[1], ] else NULL,
+      condition_A = condition_A,
+      condition_B = condition_B
+    )
+    
+    comparison_results[[subj_id]] <- comp_result$summary
+    individual_comparisons[[subj_id]] <- comp_result$details
+    
+    # Save individual comparison file if requested
+    if (save_output && !is.null(comp_result$details)) {
+      individual_dir <- file.path(output_dir, "individual")
+      dir.create(individual_dir, recursive = TRUE, showWarnings = FALSE)
+      individual_file <- file.path(individual_dir, sprintf("%s_comparison.csv", subj_id))
+      write.csv(comp_result$details, individual_file, row.names = FALSE)
+      if (verbose) message(sprintf("  Saved individual comparison to: %s", individual_file))
+    }
+  }
+  
+  # Combine all results
+  comparison_summary <- do.call(rbind, comparison_results)
+  
+  # Save summary file if requested
+  if (save_output) {
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+    summary_file <- file.path(output_dir, "comparison_summary.csv")
+    write.csv(comparison_summary, summary_file, row.names = FALSE)
+    if (verbose) message(sprintf("Saved comparison summary to: %s", summary_file))
+  }
+  
+  return(list(
+    comparison_summary = comparison_summary,
+    individual_comparisons = individual_comparisons
+  ))
+}
+
+
+#' Compare Networks for a Single Subject Across Conditions
+#'
+#' @param subj_id Subject ID
+#' @param edges_A Data frame with edges for condition A (or NULL if missing)
+#' @param edges_B Data frame with edges for condition B (or NULL if missing)
+#' @param condition_A Name of condition A
+#' @param condition_B Name of condition B
+#' @return List with summary and details data frames
+compareSubjectNetworks <- function(subj_id, edges_A, edges_B, condition_A, condition_B) {
+  
+  # Handle missing conditions
+  has_A <- !is.null(edges_A) && nrow(edges_A) > 0
+  has_B <- !is.null(edges_B) && nrow(edges_B) > 0
+  
+  if (!has_A && !has_B) {
+    # Neither condition exists
+    return(list(
+      summary = data.frame(
+        subject = subj_id,
+        has_condition_A = FALSE,
+        has_condition_B = FALSE,
+        jaccard_similarity = NA,
+        edge_overlap_count = NA,
+        edge_overlap_pct = NA,
+        edges_only_A = NA,
+        edges_only_B = NA,
+        strength_correlation = NA,
+        mean_strength_diff = NA,
+        mean_strength_A = NA,
+        mean_strength_B = NA,
+        sd_strength_A = NA,
+        sd_strength_B = NA
+      ),
+      details = NULL
+    ))
+  }
+  
+  # Create edge identifiers (from -> to)
+  if (has_A) {
+    edges_A$edge_id <- paste(edges_A$rhs, edges_A$lhs, sep = "->")
+    edge_set_A <- unique(edges_A$edge_id)
+    weights_A <- setNames(abs(edges_A$beta), edges_A$edge_id)
+  } else {
+    edge_set_A <- character(0)
+    weights_A <- numeric(0)
+  }
+  
+  if (has_B) {
+    edges_B$edge_id <- paste(edges_B$rhs, edges_B$lhs, sep = "->")
+    edge_set_B <- unique(edges_B$edge_id)
+    weights_B <- setNames(abs(edges_B$beta), edges_B$edge_id)
+  } else {
+    edge_set_B <- character(0)
+    weights_B <- numeric(0)
+  }
+  
+  # Compute set operations
+  all_edges <- unique(c(edge_set_A, edge_set_B))
+  shared_edges <- intersect(edge_set_A, edge_set_B)
+  only_A <- setdiff(edge_set_A, edge_set_B)
+  only_B <- setdiff(edge_set_B, edge_set_A)
+  
+  # Compute metrics
+  n_shared <- length(shared_edges)
+  n_union <- length(all_edges)
+  n_only_A <- length(only_A)
+  n_only_B <- length(only_B)
+  
+  jaccard_similarity <- if (n_union > 0) n_shared / n_union else NA
+  edge_overlap_pct <- if (n_union > 0) n_shared / n_union * 100 else NA
+  
+  # Strength statistics
+  mean_strength_A <- if (has_A) mean(abs(edges_A$beta), na.rm = TRUE) else NA
+  mean_strength_B <- if (has_B) mean(abs(edges_B$beta), na.rm = TRUE) else NA
+  sd_strength_A <- if (has_A) sd(abs(edges_A$beta), na.rm = TRUE) else NA
+  sd_strength_B <- if (has_B) sd(abs(edges_B$beta), na.rm = TRUE) else NA
+  
+  # Strength correlation and difference (for shared edges only)
+  if (n_shared > 0) {
+    shared_weights_A <- weights_A[shared_edges]
+    shared_weights_B <- weights_B[shared_edges]
+    strength_correlation <- cor(shared_weights_A, shared_weights_B, use = "complete.obs")
+    mean_strength_diff <- mean(abs(shared_weights_A - shared_weights_B), na.rm = TRUE)
+  } else {
+    strength_correlation <- NA
+    mean_strength_diff <- NA
+  }
+  
+  # Create summary
+  summary <- data.frame(
+    subject = subj_id,
+    has_condition_A = has_A,
+    has_condition_B = has_B,
+    jaccard_similarity = jaccard_similarity,
+    edge_overlap_count = n_shared,
+    edge_overlap_pct = edge_overlap_pct,
+    edges_only_A = n_only_A,
+    edges_only_B = n_only_B,
+    strength_correlation = strength_correlation,
+    mean_strength_diff = mean_strength_diff,
+    mean_strength_A = mean_strength_A,
+    mean_strength_B = mean_strength_B,
+    sd_strength_A = sd_strength_A,
+    sd_strength_B = sd_strength_B
+  )
+  
+  # Create detailed edge-by-edge comparison
+  if (length(all_edges) > 0) {
+    details <- data.frame(
+      subject = subj_id,
+      edge = all_edges,
+      edge_from = sapply(strsplit(all_edges, "->"), `[`, 1),
+      edge_to = sapply(strsplit(all_edges, "->"), `[`, 2),
+      in_A = all_edges %in% edge_set_A,
+      in_B = all_edges %in% edge_set_B,
+      weight_A = ifelse(all_edges %in% edge_set_A, weights_A[all_edges], NA),
+      weight_B = ifelse(all_edges %in% edge_set_B, weights_B[all_edges], NA),
+      weight_diff = NA,
+      stringsAsFactors = FALSE
+    )
+    
+    # Compute weight difference for shared edges
+    shared_idx <- details$in_A & details$in_B
+    details$weight_diff[shared_idx] <- abs(details$weight_A[shared_idx] - details$weight_B[shared_idx])
+  } else {
+    details <- NULL
+  }
+  
+  return(list(
+    summary = summary,
+    details = details
+  ))
+}
