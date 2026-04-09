@@ -233,6 +233,266 @@ gimme_dotplot <- function(){
   }
 
 
+# Detect node/coordinate columns in a simple node coordinates CSV.
+summaryPathCounts_detectCoordinateColumns <- function(node_coordinates) {
+  lower_names <- tolower(names(node_coordinates))
+
+  x_candidates <- c("x", "xcoord", "x_coord", "x.coordinate", "x_coordinate")
+  y_candidates <- c("y", "ycoord", "y_coord", "y.coordinate", "y_coordinate")
+  label_candidates <- c("node", "label", "roi", "shortroi", "name", "region", "id")
+
+  x_index <- match(TRUE, lower_names %in% x_candidates)
+  y_index <- match(TRUE, lower_names %in% y_candidates)
+  label_index <- match(TRUE, lower_names %in% label_candidates)
+
+  if (is.na(x_index) || is.na(y_index)) {
+    stop("node_coordinates_file must contain x and y columns")
+  }
+
+  if (is.na(label_index)) {
+    non_numeric <- which(!vapply(node_coordinates, is.numeric, logical(1)))
+    if (length(non_numeric) == 0) {
+      stop("node_coordinates_file must contain a node label column")
+    }
+    label_index <- non_numeric[1]
+  }
+
+  return(list(
+    label = names(node_coordinates)[label_index],
+    x = names(node_coordinates)[x_index],
+    y = names(node_coordinates)[y_index]
+  ))
+}
+
+summaryPathCounts_buildEdgeData <- function(counts) {
+  edge_specs <- list(
+    count.group = list(color = "grey20", label = "Group"),
+    count.subgroup1 = list(color = "blue", label = "Subgroup 1"),
+    count.subgroup2 = list(color = "red", label = "Subgroup 2")
+  )
+
+  edge_rows <- list()
+  row_index <- 0
+  for (i in seq_len(nrow(counts))) {
+    for (count_name in names(edge_specs)) {
+      if (count_name %in% names(counts) && !is.na(counts[i, count_name]) && counts[i, count_name] > 0) {
+        row_index <- row_index + 1
+        edge_rows[[row_index]] <- data.frame(
+          from = counts$rhs[i],
+          to = counts$lhs[i],
+          category = edge_specs[[count_name]]$label,
+          color = edge_specs[[count_name]]$color,
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+  }
+
+  if (length(edge_rows) == 0) {
+    return(data.frame(from = character(), to = character(), category = character(), color = character(), stringsAsFactors = FALSE))
+  }
+
+  edges <- do.call(rbind, edge_rows)
+  pair_id <- paste(edges$from, edges$to, sep = "->")
+  edges$offset_index <- 0
+
+  for (this_pair in unique(pair_id)) {
+    pair_rows <- which(pair_id == this_pair)
+    if (length(pair_rows) > 1) {
+      edges$offset_index[pair_rows] <- seq(-(length(pair_rows) - 1) / 2,
+                                           (length(pair_rows) - 1) / 2,
+                                           length.out = length(pair_rows))
+    }
+  }
+
+  return(edges)
+}
+
+summaryPathCounts_drawArrow <- function(from_x,
+                                        from_y,
+                                        to_x,
+                                        to_y,
+                                        offset_index,
+                                        offset_step,
+                                        node_radius,
+                                        color,
+                                        arrow_lwd,
+                                        arrow_length) {
+  dx <- to_x - from_x
+  dy <- to_y - from_y
+  edge_length <- sqrt(dx^2 + dy^2)
+  if (edge_length == 0) {
+    return(invisible(NULL))
+  }
+
+  ux <- dx / edge_length
+  uy <- dy / edge_length
+  px <- -uy
+  py <- ux
+  offset_x <- px * offset_index * offset_step
+  offset_y <- py * offset_index * offset_step
+
+  start_x <- from_x + offset_x + ux * node_radius
+  start_y <- from_y + offset_y + uy * node_radius
+  end_x <- to_x + offset_x - ux * node_radius
+  end_y <- to_y + offset_y - uy * node_radius
+
+  graphics::arrows(start_x, start_y, end_x, end_y,
+                   col = color,
+                   lwd = arrow_lwd,
+                   length = arrow_length)
+}
+
+#' Plot directed connections from a summaryPathCounts file (internal implementation)
+#'
+#' Uses a finished `summaryPathCounts.csv` file and a node coordinate CSV to
+#' create a directed network figure with nodes fixed at user-specified x-y
+#' coordinates.
+#'
+#' @param summary_counts_file Path to `summaryPathCounts.csv`
+#' @param node_coordinates_file Path to node coordinates CSV
+#' @param output_file Optional PNG output path. If `NULL`, plots to active device.
+#' @param width Width in inches for PNG output
+#' @param height Height in inches for PNG output
+#' @param point_cex Point size for nodes
+#' @param label_cex Text size for labels
+#' @param arrow_lwd Line width for arrows
+#' @param arrow_length Arrowhead size
+#' @param verbose Logical. If `TRUE`, prints progress messages
+#'
+#' @return Invisibly returns a list containing the filtered nodes and edges.
+plotNetworkCoords_internal <- function(summary_counts_file,
+                                       node_coordinates_file,
+                                       output_file = NULL,
+                                       width = 7,
+                                       height = 7,
+                                       point_cex = 2,
+                                       label_cex = 1,
+                                       arrow_lwd = 2,
+                                       arrow_length = 0.12,
+                                       verbose = TRUE) {
+  if (!file.exists(summary_counts_file)) {
+    stop(sprintf("summary_counts_file not found: %s", summary_counts_file))
+  }
+  if (!file.exists(node_coordinates_file)) {
+    stop(sprintf("node_coordinates_file not found: %s", node_coordinates_file))
+  }
+
+  counts <- read.csv(summary_counts_file, stringsAsFactors = FALSE)
+  node_coordinates <- read.csv(node_coordinates_file, stringsAsFactors = FALSE)
+
+  required_cols <- c("lhs", "rhs")
+  missing_cols <- setdiff(required_cols, names(counts))
+  if (length(missing_cols) > 0) {
+    stop(sprintf("summary_counts_file is missing required columns: %s",
+                 paste(missing_cols, collapse = ", ")))
+  }
+
+  coordinate_cols <- summaryPathCounts_detectCoordinateColumns(node_coordinates)
+  coords <- node_coordinates[, c(coordinate_cols$label, coordinate_cols$x, coordinate_cols$y)]
+  names(coords) <- c("node", "x", "y")
+  coords$node <- as.character(coords$node)
+  coords$x <- suppressWarnings(as.numeric(coords$x))
+  coords$y <- suppressWarnings(as.numeric(coords$y))
+  coords <- coords[!duplicated(coords$node), , drop = FALSE]
+
+  if (any(is.na(coords$x)) || any(is.na(coords$y))) {
+    stop("node_coordinates_file contains non-numeric x or y values")
+  }
+
+  present_count_cols <- intersect(c("count.group", "count.subgroup1", "count.subgroup2"), names(counts))
+  if (length(present_count_cols) == 0) {
+    stop("summary_counts_file must contain at least one of count.group, count.subgroup1, or count.subgroup2")
+  }
+
+  counts$lhs <- as.character(counts$lhs)
+  counts$rhs <- as.character(counts$rhs)
+  counts <- counts[!grepl("lag", counts$rhs, ignore.case = TRUE), , drop = FALSE]
+
+  for (count_name in present_count_cols) {
+    counts[[count_name]] <- suppressWarnings(as.numeric(counts[[count_name]]))
+  }
+
+  keep_rows <- rep(FALSE, nrow(counts))
+  for (count_name in present_count_cols) {
+    keep_rows <- keep_rows | (!is.na(counts[[count_name]]) & counts[[count_name]] > 0)
+  }
+  counts <- counts[keep_rows, , drop = FALSE]
+
+  if (nrow(counts) > 0) {
+    missing_nodes <- setdiff(unique(c(counts$lhs, counts$rhs)), coords$node)
+    if (length(missing_nodes) > 0) {
+      stop(sprintf("Missing coordinates for nodes: %s", paste(missing_nodes, collapse = ", ")))
+    }
+  }
+
+  edges <- summaryPathCounts_buildEdgeData(counts)
+
+  x_span <- diff(range(coords$x))
+  y_span <- diff(range(coords$y))
+  plot_span <- max(c(x_span, y_span, 1))
+  node_radius <- plot_span * 0.03
+  offset_step <- plot_span * 0.03
+
+  x_pad <- plot_span * 0.1
+  y_pad <- plot_span * 0.1
+
+  if (!is.null(output_file)) {
+    dir.create(dirname(output_file), recursive = TRUE, showWarnings = FALSE)
+    grDevices::png(output_file, width = width, height = height, units = "in", res = 300)
+    on.exit(grDevices::dev.off(), add = TRUE)
+  }
+
+  old_par <- graphics::par(no.readonly = TRUE)
+  on.exit(graphics::par(old_par), add = TRUE)
+
+  graphics::plot(coords$x, coords$y,
+                 type = "n",
+                 axes = FALSE,
+                 xlab = "",
+                 ylab = "",
+                 asp = 1,
+                 xlim = c(min(coords$x) - x_pad, max(coords$x) + x_pad),
+                 ylim = c(min(coords$y) - y_pad, max(coords$y) + y_pad),
+                 bty = "n")
+
+  graphics::points(coords$x, coords$y, pch = 16, cex = point_cex)
+  graphics::text(coords$x, coords$y, labels = coords$node, pos = 3, cex = label_cex)
+
+  if (nrow(edges) > 0) {
+    for (i in seq_len(nrow(edges))) {
+      from_row <- coords[coords$node == edges$from[i], , drop = FALSE]
+      to_row <- coords[coords$node == edges$to[i], , drop = FALSE]
+      summaryPathCounts_drawArrow(from_row$x, from_row$y,
+                                  to_row$x, to_row$y,
+                                  edges$offset_index[i],
+                                  offset_step,
+                                  node_radius,
+                                  edges$color[i],
+                                  arrow_lwd,
+                                  arrow_length)
+    }
+
+    present_categories <- unique(edges[, c("category", "color")])
+    graphics::legend("topright",
+                     legend = present_categories$category,
+                     col = present_categories$color,
+                     lwd = arrow_lwd,
+                     bty = "n")
+  } else {
+    warning("No non-lag paths with positive group or subgroup counts were found")
+  }
+
+  if (verbose) {
+    message(sprintf("Plotted %d nodes and %d arrows", nrow(coords), nrow(edges)))
+    if (!is.null(output_file)) {
+      message(sprintf("Saved figure to: %s", output_file))
+    }
+  }
+
+  return(invisible(list(nodes = coords, edges = edges, filtered_counts = counts)))
+}
+
 #' Plot Network Metrics Across Conditions (Internal Implementation)
 #'
 #' Generates ggplot2 visualizations of network metrics, showing distributions

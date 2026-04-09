@@ -548,3 +548,56 @@ plotNetworkMetrics <- function(model_dir_A = NULL,
                               condition_A_label, condition_B_label, group_file,
                               output_dir, save_figures, verbose)
 }
+
+#' Plot a directed summaryPathCounts network with fixed node coordinates
+#'
+#' Creates a directed network figure from a finished `summaryPathCounts.csv`
+#' file and a CSV of node coordinates. Rows are plotted when `rhs` does not
+#' contain `"lag"` and any available count column among `count.group`,
+#' `count.subgroup1`, or `count.subgroup2` is greater than zero.
+#'
+#' Arrows originate at `rhs` and point to `lhs`. Group connections are drawn
+#' in dark grey, subgroup 1 connections in blue, and subgroup 2 connections in
+#' red.
+#'
+#' The node coordinate file must contain one node label column and numeric x/y
+#' columns. Label columns named `node`, `label`, `roi`, `shortroi`, `name`,
+#' `region`, or `id` are detected automatically.
+#'
+#' @param summary_counts_file Path to `summaryPathCounts.csv`
+#' @param node_coordinates_file Path to CSV containing node labels and x/y coordinates
+#' @param output_file Optional path to save a PNG. If `NULL`, plots to the active device.
+#' @param width Width in inches when saving a PNG
+#' @param height Height in inches when saving a PNG
+#' @param point_cex Point size for nodes
+#' @param label_cex Text size for node labels
+#' @param arrow_lwd Line width for arrows
+#' @param arrow_length Arrowhead size passed to `graphics::arrows`
+#' @param verbose Logical. If `TRUE`, prints progress messages
+#'
+#' @return Invisibly returns a list with the filtered nodes and edges used for plotting.
+#'
+#' @examples
+#' \dontrun{
+#' plotNetworkCoords(
+#'   summary_counts_file = "models/first_model/summaryPathCounts.csv",
+#'   node_coordinates_file = "node_coordinates.csv",
+#'   output_file = "models/first_model/figures/summaryPathCounts.png"
+#' )
+#' }
+#'
+#' @export
+plotNetworkCoords <- function(summary_counts_file,
+                              node_coordinates_file,
+                              output_file = NULL,
+                              width = 7,
+                              height = 7,
+                              point_cex = 2,
+                              label_cex = 1,
+                              arrow_lwd = 2,
+                              arrow_length = 0.12,
+                              verbose = TRUE) {
+  plotNetworkCoords_internal(summary_counts_file, node_coordinates_file,
+                             output_file, width, height, point_cex,
+                             label_cex, arrow_lwd, arrow_length, verbose)
+}
