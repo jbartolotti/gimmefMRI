@@ -450,6 +450,10 @@ plotNetworkCoords_internal <- function(summary_counts_file,
   old_par <- graphics::par(no.readonly = TRUE)
   on.exit(graphics::par(old_par), add = TRUE)
 
+  if (!show_axes) {
+    graphics::par(mar = c(0.2, 0.2, 0.2, 0.2))
+  }
+
   graphics::plot(coords$x, coords$y,
                  type = "n",
                  axes = show_axes,
