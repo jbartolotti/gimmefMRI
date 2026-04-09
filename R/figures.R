@@ -172,7 +172,7 @@ gimme_dotplot <- function(){
   library(Hmisc)
   ggplot2::ggplot(subset(dat, !islag & level == 'group'), ggplot2::aes(x = conclean_group, y = beta, color = color)) + ggbeeswarm::geom_quasirandom() +
     ggplot2::stat_summary(fun='mean', geom = 'point', color = 'black') +
-    ggplot2::stat_summary(fun.data= Hmisc::mean_cl_normal, geom = 'pointrange', color = 'black') +
+    ggplot2::stat_summary(fun.data= Hmisc::smean.cl.normal, geom = 'pointrange', color = 'black') +
     scale_color_manual(values= c('blue','red')) +
     theme_bw() +
     labs(x = '') +
@@ -215,7 +215,7 @@ gimme_dotplot <- function(){
   dat2_wide$delta <- dat2_wide$beta.B - dat2_wide$beta.A
 
   ggplot2::ggplot(dat2_wide, ggplot2::aes(x = 1, y = delta)) + ggbeeswarm::geom_quasirandom() + theme_bw() + ggplot2::stat_summary(fun = 'mean', geom = 'point', color = 'black') +
-    ggplot2::stat_summary(fun.data = Hmisc::mean_cl_normal, geom = 'pointrange', color = 'black') + labs(x = 'vmPFC -> rACC') + coord_cartesian(x = c(0,2)) +
+    ggplot2::stat_summary(fun.data = Hmisc::smean.cl.normal, geom = 'pointrange', color = 'black') + labs(x = 'vmPFC -> rACC') + coord_cartesian(x = c(0,2)) +
     ggsave('delta_dot_vmpfc_racc.png', width = 4, height = 4)
 
 
@@ -227,7 +227,7 @@ gimme_dotplot <- function(){
   dat3_wide$delta <- dat3_wide$beta.B - dat3_wide$beta.A
 
   ggplot2::ggplot(dat3_wide, ggplot2::aes(x = 1, y = delta)) + ggbeeswarm::geom_quasirandom() + theme_bw() + ggplot2::stat_summary(fun = 'mean', geom = 'point', color = 'black') +
-    ggplot2::stat_summary(fun.data = Hmisc::mean_cl_normal, geom = 'pointrange', color = 'black') + labs(x = 'R_lPFC -> L_lPFC') + coord_cartesian(x = c(0,2))
+    ggplot2::stat_summary(fun.data = Hmisc::smean.cl.normal, geom = 'pointrange', color = 'black') + labs(x = 'R_lPFC -> L_lPFC') + coord_cartesian(x = c(0,2))
     ggsave('delta_dot_RL_lPFC.png', width = 4, height = 4)
 
   }
@@ -645,7 +645,7 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
         
         p <- ggplot2::ggplot(network_data, ggplot2::aes(x = .data[[x_var]], y = .data[[metric]])) +
           ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
-          ggplot2::stat_summary(fun.data = Hmisc::mean_cl_normal, geom = "pointrange",
+          ggplot2::stat_summary(fun.data = Hmisc::smean.cl.normal, geom = "pointrange",
                                 color = "red", size = 0.8, linewidth = 1) +
           ggplot2::labs(
             title = metric_labels[metric],
@@ -713,7 +713,7 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
               # Plot with groups on x-axis
               p <- ggplot2::ggplot(comp_data_both, ggplot2::aes(x = .data[[x_var_comp]], y = .data[[metric]])) +
                 ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
-                ggplot2::stat_summary(fun.data = Hmisc::mean_cl_normal, geom = "pointrange",
+                ggplot2::stat_summary(fun.data = Hmisc::smean.cl.normal, geom = "pointrange",
                                       color = "red", size = 0.8, linewidth = 1) +
                 ggplot2::labs(
                   title = comparison_labels[metric],
@@ -729,7 +729,7 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
               # Plot without groups (all subjects together)
               p <- ggplot2::ggplot(comp_data_both, ggplot2::aes(x = 1, y = .data[[metric]])) +
                 ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
-                ggplot2::stat_summary(fun.data = Hmisc::mean_cl_normal, geom = "pointrange",
+                ggplot2::stat_summary(fun.data = Hmisc::smean.cl.normal, geom = "pointrange",
                                       color = "red", size = 0.8, linewidth = 1) +
                 ggplot2::labs(
                   title = comparison_labels[metric],
@@ -794,7 +794,7 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
           
           p <- ggplot2::ggplot(edge_diff_data, ggplot2::aes(x = .data[[x_axis_var]], y = n_edges)) +
             ggbeeswarm::geom_quasirandom(size = 2, alpha = 0.6) +
-            ggplot2::stat_summary(fun.data = Hmisc::mean_cl_normal, geom = "pointrange",
+            ggplot2::stat_summary(fun.data = Hmisc::smean.cl.normal, geom = "pointrange",
                                   color = "red", size = 0.8, linewidth = 1) +
             ggplot2::labs(
               title = "Unique Edges per Condition",
