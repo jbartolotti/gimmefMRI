@@ -573,6 +573,7 @@ plotNetworkMetrics <- function(model_dir_A = NULL,
 #' @param label_cex Text size for node labels
 #' @param arrow_lwd Line width for arrows
 #' @param arrow_length Arrowhead size passed to `graphics::arrows`
+#' @param show_axes Logical. If `TRUE`, draws labelled x and y coordinate axes. Default `FALSE`.
 #' @param verbose Logical. If `TRUE`, prints progress messages
 #'
 #' @return Invisibly returns a list with the filtered nodes and edges used for plotting.
@@ -596,8 +597,9 @@ plotNetworkCoords <- function(summary_counts_file,
                               label_cex = 1,
                               arrow_lwd = 2,
                               arrow_length = 0.12,
+                              show_axes = FALSE,
                               verbose = TRUE) {
   plotNetworkCoords_internal(summary_counts_file, node_coordinates_file,
                              output_file, width, height, point_cex,
-                             label_cex, arrow_lwd, arrow_length, verbose)
+                             label_cex, arrow_lwd, arrow_length, show_axes, verbose)
 }

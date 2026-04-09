@@ -370,6 +370,7 @@ plotNetworkCoords_internal <- function(summary_counts_file,
                                        label_cex = 1,
                                        arrow_lwd = 2,
                                        arrow_length = 0.12,
+                                       show_axes = FALSE,
                                        verbose = TRUE) {
   if (!file.exists(summary_counts_file)) {
     stop(sprintf("summary_counts_file not found: %s", summary_counts_file))
@@ -434,8 +435,11 @@ plotNetworkCoords_internal <- function(summary_counts_file,
   node_radius <- plot_span * 0.03
   offset_step <- plot_span * 0.03
 
-  x_pad <- plot_span * 0.1
-  y_pad <- plot_span * 0.1
+  # Use the same half-range on both axes so 1 unit = 1 unit in both directions
+  axis_pad <- plot_span * 0.15
+  half_range <- plot_span / 2 + axis_pad
+  center_x <- mean(range(coords$x))
+  center_y <- mean(range(coords$y))
 
   if (!is.null(output_file)) {
     dir.create(dirname(output_file), recursive = TRUE, showWarnings = FALSE)
@@ -448,16 +452,21 @@ plotNetworkCoords_internal <- function(summary_counts_file,
 
   graphics::plot(coords$x, coords$y,
                  type = "n",
-                 axes = FALSE,
-                 xlab = "",
-                 ylab = "",
+                 axes = show_axes,
+                 xlab = if (show_axes) "x" else "",
+                 ylab = if (show_axes) "y" else "",
                  asp = 1,
-                 xlim = c(min(coords$x) - x_pad, max(coords$x) + x_pad),
-                 ylim = c(min(coords$y) - y_pad, max(coords$y) + y_pad),
-                 bty = "n")
+                 xlim = c(center_x - half_range, center_x + half_range),
+                 ylim = c(center_y - half_range, center_y + half_range),
+                 bty = if (show_axes) "o" else "n")
 
   graphics::points(coords$x, coords$y, pch = 16, cex = point_cex)
-  graphics::text(coords$x, coords$y, labels = coords$node, pos = 3, cex = label_cex)
+
+  # Label to the right by default; to the left for nodes near the leftmost edge
+  x_range <- diff(range(coords$x))
+  left_threshold <- min(coords$x) + x_range * 0.2
+  label_pos <- ifelse(coords$x <= left_threshold, 2L, 4L)
+  graphics::text(coords$x, coords$y, labels = coords$node, pos = label_pos, cex = label_cex)
 
   if (nrow(edges) > 0) {
     for (i in seq_len(nrow(edges))) {
