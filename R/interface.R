@@ -648,9 +648,9 @@ plotNetworkCoords <- function(summary_counts_file,
 #' connections (where \code{rhs} or \code{lhs} contains \code{"lag"}) are
 #' excluded.
 #'
-#' Subject IDs are matched after stripping the \code{"sub-"} prefix,
-#' so BIDS-format participant IDs (\code{"sub-101"}) match GIMME subject labels
-#' (\code{"101"}).
+#' Subject IDs are matched by extracting the last numeric token from each ID,
+#' so BIDS-format participant IDs like \code{"sub-201"} match GIMME labels
+#' such as \code{"201"} or \code{"OA_201"}.
 #'
 #' @examples
 #' \dontrun{

@@ -943,28 +943,36 @@ correlateBehavior_internal <- function(model_dir,
 
   if (verbose) message(sprintf("Using behavioral column: '%s'", behavioral_col))
 
-  # Match participant IDs between GIMME output and participants file
-  # GIMME file column may be e.g. "101" while participant_id is "sub-101"
-  # Try stripping "sub-" prefix for matching
-  ptcp$match_id <- sub("^sub-", "", ptcp$participant_id)
-  edge_wide$match_id <- sub("^sub-", "", edge_wide$file)
+  # Match participant IDs by extracted subject number (last numeric token).
+  # Examples: "OA_201" -> "201", "sub-201" -> "201".
+  extract_subject_number <- function(ids) {
+    ids <- as.character(ids)
+    last_num <- regmatches(ids, regexpr("[0-9]+(?!.*[0-9])", ids, perl = TRUE))
+    last_num[last_num == ""] <- NA_character_
+    last_num
+  }
 
-  merged <- merge(edge_wide, ptcp[, c("match_id", "group", behavioral_col)],
-                  by = "match_id", all.x = FALSE)
+  ptcp$match_num <- extract_subject_number(ptcp$participant_id)
+  edge_wide$match_num <- extract_subject_number(edge_wide$file)
+
+  merged <- merge(edge_wide, ptcp[, c("match_num", "group", behavioral_col)],
+                  by = "match_num", all.x = FALSE)
 
   if (nrow(merged) == 0) {
     stop(paste(
       "No subjects matched between indivPathEstimates.csv and participants file.",
       sprintf("GIMME subjects (first 5): %s", paste(head(edge_wide$file, 5), collapse = ", ")),
       sprintf("Participants file IDs (first 5): %s", paste(head(ptcp$participant_id, 5), collapse = ", ")),
+      sprintf("Parsed GIMME numbers (first 5): %s", paste(head(edge_wide$match_num, 5), collapse = ", ")),
+      sprintf("Parsed participant numbers (first 5): %s", paste(head(ptcp$match_num, 5), collapse = ", ")),
       sep = "\n"
     ))
   }
 
   if (verbose) message(sprintf("Matched %d subjects", nrow(merged)))
 
-  # Identify edge columns (everything except file, match_id, group, behavioral_col)
-  non_edge_cols <- c("file", "match_id", "group", behavioral_col)
+  # Identify edge columns (everything except metadata)
+  non_edge_cols <- c("file", "match_num", "group", behavioral_col)
   edge_cols <- setdiff(names(merged), non_edge_cols)
 
   # Run correlations per subgroup x edge
