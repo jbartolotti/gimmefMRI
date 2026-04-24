@@ -1,3 +1,73 @@
+#' Load a BIDS-style participants file and identify the behavioral column
+#'
+#' @param participants_file Path to a participants .tsv or .csv file. If NULL,
+#'   looks for participants.tsv in gimme_dir.
+#' @param gimme_dir Path to the GIMME model output folder (used to locate the
+#'   default participants file).
+#' @param behavioral_col Name of the column to use as the behavioral outcome. If
+#'   NULL, the function guesses by taking the first non-id, non-group column.
+#'
+#' @return A list with elements:
+#'   \item{data}{Data frame with at least participant_id, group, and the
+#'     behavioral column}
+#'   \item{behavioral_col}{The name of the selected behavioral column}
+loadParticipantsFile <- function(participants_file = NULL,
+                                 gimme_dir = NULL,
+                                 behavioral_col = NULL) {
+  # Locate file
+  if (is.null(participants_file)) {
+    if (is.null(gimme_dir)) stop("Provide either participants_file or gimme_dir.")
+    candidates <- c(
+      file.path(gimme_dir, "participants.tsv"),
+      file.path(gimme_dir, "participants.csv")
+    )
+    participants_file <- candidates[file.exists(candidates)][1]
+    if (is.na(participants_file)) {
+      stop(sprintf("No participants.tsv or participants.csv found in: %s", gimme_dir))
+    }
+  }
+
+  # Read: detect separator from extension
+  ext <- tolower(tools::file_ext(participants_file))
+  if (ext == "tsv") {
+    ptcp <- utils::read.table(participants_file, header = TRUE, sep = "\t",
+                              stringsAsFactors = FALSE, check.names = FALSE)
+  } else {
+    ptcp <- utils::read.csv(participants_file, stringsAsFactors = FALSE,
+                            check.names = FALSE)
+  }
+
+  # Validate required columns
+  if (!"participant_id" %in% names(ptcp)) {
+    stop(sprintf("participants file must contain a 'participant_id' column. Found: %s",
+                 paste(names(ptcp), collapse = ", ")))
+  }
+
+  # Guess behavioral column if not supplied
+  reserved_cols <- c("participant_id", "group")
+  if (is.null(behavioral_col)) {
+    candidates_cols <- setdiff(names(ptcp), reserved_cols)
+    numeric_cols <- candidates_cols[sapply(candidates_cols, function(cn) {
+      is.numeric(ptcp[[cn]]) || suppressWarnings(!any(is.na(as.numeric(ptcp[[cn]]))))
+    })]
+    if (length(numeric_cols) == 0) {
+      stop("Could not identify a numeric behavioral column in the participants file.")
+    }
+    behavioral_col <- numeric_cols[1]
+    message(sprintf("No behavioral_col specified; using '%s'", behavioral_col))
+  } else {
+    if (!behavioral_col %in% names(ptcp)) {
+      stop(sprintf("Column '%s' not found in participants file. Available: %s",
+                   behavioral_col, paste(names(ptcp), collapse = ", ")))
+    }
+  }
+
+  # Coerce behavioral column to numeric
+  ptcp[[behavioral_col]] <- suppressWarnings(as.numeric(ptcp[[behavioral_col]]))
+
+  return(list(data = ptcp, behavioral_col = behavioral_col))
+}
+
 timecoursesToRdat <- function(timecourse_locations){
   #timecourse_locations can be
     # - a csv that contains absolute paths for each timecourse

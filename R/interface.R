@@ -603,3 +603,99 @@ plotNetworkCoords <- function(summary_counts_file,
                              output_file, width, height, point_cex,
                              label_cex, arrow_lwd, arrow_length, show_axes, verbose)
 }
+
+
+#' Correlate GIMME Edge Weights with a Behavioral Outcome
+#'
+#' For each non-lag, group- or subgroup-level edge in a GIMME model, correlates
+#' individual subjects' path beta weights with a behavioral outcome column from
+#' a BIDS-style participants file. Correlations are run separately for each
+#' subgroup defined by the \code{group} column in the participants file.
+#' A scatter-plot figure (with regression lines and annotated R² / p-value) is
+#' saved for every subgroup.
+#'
+#' @param model_dir Path to a GIMME model output folder containing
+#'   \code{indivPathEstimates.csv}.
+#' @param participants_file Path to a participants \code{.tsv} or \code{.csv}
+#'   file. Must contain a \code{participant_id} column (values like
+#'   \code{"sub-101"} are matched to GIMME subject labels automatically) and a
+#'   \code{group} column. If \code{NULL} the function looks for
+#'   \code{participants.tsv} in \code{model_dir}.
+#' @param behavioral_col Name of the column in the participants file to use as
+#'   the behavioral outcome. If \code{NULL} the function selects the first
+#'   numeric column that is not \code{participant_id} or \code{group}.
+#' @param save_output Logical. If \code{TRUE} (default), saves a CSV of
+#'   correlation results to \code{model_dir}.
+#' @param save_figures Logical. If \code{TRUE} (default), saves PNG scatter-
+#'   plot figures to \code{model_dir/figures/behavior/}.
+#' @param output_dir Optional custom directory for figure output. Defaults to
+#'   \code{model_dir/figures/behavior/}.
+#' @param ncol Number of columns in the multi-panel figure grid (default 4).
+#' @param verbose Logical. If \code{TRUE} (default), prints progress messages.
+#'
+#' @return Invisibly returns a list with:
+#'   \item{correlations}{Data frame with one row per edge × subgroup combination,
+#'     containing \code{subgroup}, \code{edge}, \code{n}, \code{r}, \code{r2},
+#'     and \code{pval}.}
+#'   \item{edge_data}{Wide data frame of subject-level edge weights merged with
+#'     behavioral and group data.}
+#'   \item{behavioral_col}{The behavioral column used.}
+#'   \item{figures}{List of ggplot objects (one per subgroup).}
+#'
+#' @details
+#' Only edges with \code{level} equal to \code{"group"}, \code{"subgroup1"}, or
+#' \code{"subgroup2"} in \code{indivPathEstimates.csv} are included. Lagged
+#' connections (where \code{rhs} or \code{lhs} contains \code{"lag"}) are
+#' excluded.
+#'
+#' Subject IDs are matched after stripping the \code{"sub-"} prefix,
+#' so BIDS-format participant IDs (\code{"sub-101"}) match GIMME subject labels
+#' (\code{"101"}).
+#'
+#' @examples
+#' \dontrun{
+#' # Auto-detect participants.tsv and behavioral column
+#' results <- correlateBehavior(
+#'   model_dir = "models/first_model"
+#' )
+#'
+#' # Specify participants file and column explicitly
+#' results <- correlateBehavior(
+#'   model_dir       = "models/first_model",
+#'   participants_file = "participants.tsv",
+#'   behavioral_col  = "mean_cued"
+#' )
+#'
+#' # View correlations table
+#' head(results$correlations)
+#' }
+#'
+#' @export
+correlateBehavior <- function(model_dir,
+                              participants_file = NULL,
+                              behavioral_col    = NULL,
+                              save_output       = TRUE,
+                              save_figures      = TRUE,
+                              output_dir        = NULL,
+                              ncol              = 4,
+                              verbose           = TRUE) {
+
+  corr_result <- correlateBehavior_internal(
+    model_dir         = model_dir,
+    participants_file = participants_file,
+    behavioral_col    = behavioral_col,
+    save_output       = save_output,
+    verbose           = verbose
+  )
+
+  figs <- plotBehaviorCorrelations_internal(
+    corr_result           = corr_result,
+    output_dir            = output_dir,
+    model_dir             = model_dir,
+    save_figures          = save_figures,
+    ncol                  = ncol,
+    verbose               = verbose
+  )
+
+  return(invisible(c(corr_result, list(figures = figs))))
+}

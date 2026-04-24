@@ -881,3 +881,133 @@ compareSubjectNetworks <- function(subj_id, edges_A, edges_B, condition_A, condi
     details = details
   ))
 }
+
+
+#' Correlate GIMME Edge Weights with a Behavioral Outcome (Internal)
+#'
+#' For each group-level or subgroup-level non-lag edge, correlates individual
+#' path beta weights with a behavioral outcome, separately per subgroup defined
+#' in the participants file.
+#'
+#' @param model_dir Path to GIMME model output folder containing indivPathEstimates.csv
+#' @param participants_file Path to participants tsv/csv (NULL = look for
+#'   participants.tsv in model_dir)
+#' @param behavioral_col Column in participants file to use as outcome. NULL =
+#'   auto-detect.
+#' @param save_output Logical. Save correlation summary CSV to model_dir.
+#' @param verbose Logical. Print progress messages.
+#'
+#' @return A list with:
+#'   \item{correlations}{Data frame of correlation results, one row per edge x subgroup}
+#'   \item{edge_data}{Wide data frame used for correlations (subjects x edges + behavioral)}
+#'   \item{behavioral_col}{The behavioral column used}
+correlateBehavior_internal <- function(model_dir,
+                                       participants_file = NULL,
+                                       behavioral_col = NULL,
+                                       save_output = TRUE,
+                                       verbose = TRUE) {
+
+  # Load path estimates
+  path_file <- file.path(model_dir, "indivPathEstimates.csv")
+  if (!file.exists(path_file)) stop(sprintf("File not found: %s", path_file))
+  paths <- utils::read.csv(path_file, stringsAsFactors = FALSE)
+
+  # Keep only group and subgroup-level non-lag edges
+  paths <- paths[!grepl("lag", paths$rhs, ignore.case = TRUE) &
+                 !grepl("lag", paths$lhs, ignore.case = TRUE), ]
+  paths <- paths[paths$level %in% c("group", "subgroup1", "subgroup2"), ]
+
+  if (nrow(paths) == 0) stop("No group/subgroup non-lag edges found in indivPathEstimates.csv")
+
+  # Identify group/subgroup edges (those that appear for >1 subject at that level)
+  paths$edge <- paste(paths$rhs, paths$lhs, sep = "->")
+
+  # Wide format: one row per subject, one column per edge
+  edge_wide <- reshape(
+    paths[, c("file", "edge", "beta")],
+    idvar = "file",
+    timevar = "edge",
+    direction = "wide",
+    v.names = "beta"
+  )
+  names(edge_wide) <- sub("^beta\\.", "", names(edge_wide))
+
+  # Load participants file
+  ptcp_info <- loadParticipantsFile(
+    participants_file = participants_file,
+    gimme_dir = model_dir,
+    behavioral_col = behavioral_col
+  )
+  ptcp <- ptcp_info$data
+  behavioral_col <- ptcp_info$behavioral_col
+
+  if (verbose) message(sprintf("Using behavioral column: '%s'", behavioral_col))
+
+  # Match participant IDs between GIMME output and participants file
+  # GIMME file column may be e.g. "101" while participant_id is "sub-101"
+  # Try stripping "sub-" prefix for matching
+  ptcp$match_id <- sub("^sub-", "", ptcp$participant_id)
+  edge_wide$match_id <- sub("^sub-", "", edge_wide$file)
+
+  merged <- merge(edge_wide, ptcp[, c("match_id", "group", behavioral_col)],
+                  by = "match_id", all.x = FALSE)
+
+  if (nrow(merged) == 0) {
+    stop(paste(
+      "No subjects matched between indivPathEstimates.csv and participants file.",
+      sprintf("GIMME subjects (first 5): %s", paste(head(edge_wide$file, 5), collapse = ", ")),
+      sprintf("Participants file IDs (first 5): %s", paste(head(ptcp$participant_id, 5), collapse = ", ")),
+      sep = "\n"
+    ))
+  }
+
+  if (verbose) message(sprintf("Matched %d subjects", nrow(merged)))
+
+  # Identify edge columns (everything except file, match_id, group, behavioral_col)
+  non_edge_cols <- c("file", "match_id", "group", behavioral_col)
+  edge_cols <- setdiff(names(merged), non_edge_cols)
+
+  # Run correlations per subgroup x edge
+  subgroups <- sort(unique(merged$group))
+  results <- list()
+
+  for (sg in subgroups) {
+    sg_data <- merged[merged$group == sg, ]
+    for (ec in edge_cols) {
+      vals <- sg_data[[ec]]
+      beh  <- sg_data[[behavioral_col]]
+      # Only non-NA pairs
+      ok <- !is.na(vals) & !is.na(beh)
+      n_valid <- sum(ok)
+      if (n_valid < 3) {
+        results[[paste(sg, ec, sep = "|||")]] <- data.frame(
+          subgroup = sg, edge = ec, n = n_valid,
+          r = NA_real_, r2 = NA_real_, pval = NA_real_,
+          stringsAsFactors = FALSE
+        )
+        next
+      }
+      ct <- stats::cor.test(vals[ok], beh[ok], method = "pearson")
+      results[[paste(sg, ec, sep = "|||")]] <- data.frame(
+        subgroup = sg, edge = ec, n = n_valid,
+        r = ct$estimate, r2 = ct$estimate^2, pval = ct$p.value,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  correlations <- do.call(rbind, results)
+  rownames(correlations) <- NULL
+
+  if (save_output) {
+    out_file <- file.path(model_dir, sprintf("behaviorCorrelations_%s.csv", behavioral_col))
+    utils::write.csv(correlations, out_file, row.names = FALSE)
+    if (verbose) message(sprintf("Saved correlation results to: %s", out_file))
+  }
+
+  return(list(
+    correlations = correlations,
+    edge_data = merged,
+    behavioral_col = behavioral_col
+  ))
+}

@@ -828,3 +828,146 @@ plotNetworkMetrics_internal <- function(model_dir_A = NULL,
   
   return(invisible(plot_list))
 }
+
+
+#' Plot Behavior-Edge Correlations (Internal)
+#'
+#' Creates a multi-panel scatter plot figure for each subgroup, with one panel
+#' per non-lag group/subgroup edge. Each panel shows a scatter plot of the edge
+#' beta weight vs. the behavioral outcome, a regression line, and annotated
+#' R² and p-value.
+#'
+#' @param corr_result Return value from correlateBehavior_internal()
+#' @param output_dir Directory to save figures. NULL = model_dir/figures/behavior
+#' @param model_dir Model directory (used to build default output_dir)
+#' @param save_figures Logical. Save PNG files.
+#' @param fig_width_per_panel Inches per panel column
+#' @param fig_height_per_panel Inches per panel row
+#' @param ncol Number of columns in the panel grid
+#' @param verbose Logical. Print progress.
+#'
+#' @return Invisible list of ggplot objects, one per subgroup
+plotBehaviorCorrelations_internal <- function(corr_result,
+                                              output_dir = NULL,
+                                              model_dir = NULL,
+                                              save_figures = TRUE,
+                                              fig_width_per_panel = 3,
+                                              fig_height_per_panel = 3,
+                                              ncol = 4,
+                                              verbose = TRUE) {
+
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required. Install with: install.packages('ggplot2')")
+  }
+
+  correlations <- corr_result$correlations
+  edge_data    <- corr_result$edge_data
+  behavioral_col <- corr_result$behavioral_col
+
+  # Resolve output directory
+  if (is.null(output_dir)) {
+    if (!is.null(model_dir)) {
+      output_dir <- file.path(model_dir, "figures", "behavior")
+    } else {
+      output_dir <- file.path(getwd(), "figures", "behavior")
+    }
+  }
+
+  if (save_figures) dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+  subgroups <- sort(unique(correlations$subgroup))
+  plot_list <- list()
+
+  for (sg in subgroups) {
+    sg_corr <- correlations[correlations$subgroup == sg, ]
+    sg_corr <- sg_corr[!is.na(sg_corr$r), ]
+
+    if (nrow(sg_corr) == 0) {
+      if (verbose) message(sprintf("Subgroup '%s': no edges with sufficient data, skipping.", sg))
+      next
+    }
+
+    edges_to_plot <- sg_corr$edge
+    sg_data <- edge_data[edge_data$group == sg, ]
+
+    # Build a list of per-edge ggplot objects
+    panel_plots <- lapply(edges_to_plot, function(ec) {
+      row <- sg_corr[sg_corr$edge == ec, ]
+      beh  <- sg_data[[behavioral_col]]
+      vals <- sg_data[[ec]]
+      ok   <- !is.na(vals) & !is.na(beh)
+      plot_df <- data.frame(
+        x = beh[ok],
+        y = vals[ok]
+      )
+
+      r2_label <- sprintf("R\u00b2 = %.3f", row$r2)
+      p_label  <- if (!is.na(row$pval) && row$pval < 0.001) {
+        "p < 0.001"
+      } else {
+        sprintf("p = %.3f", row$pval)
+      }
+      ann_label <- paste(r2_label, p_label, sep = "\n")
+
+      # Clean edge label: "rhs->lhs" -> "rhs -> lhs"
+      clean_edge <- gsub("->", " \u2192 ", ec)
+
+      ggplot2::ggplot(plot_df, ggplot2::aes(x = x, y = y)) +
+        ggplot2::geom_point(size = 2, alpha = 0.7) +
+        ggplot2::geom_smooth(method = "lm", formula = y ~ x,
+                              se = TRUE, color = "#2166ac", fill = "#d1e5f0") +
+        ggplot2::annotate("text",
+                          x = min(plot_df$x, na.rm = TRUE),
+                          y = max(plot_df$y, na.rm = TRUE),
+                          label = ann_label,
+                          hjust = 0, vjust = 1, size = 3) +
+        ggplot2::labs(title = clean_edge,
+                      x = behavioral_col,
+                      y = "Edge weight (\u03b2)") +
+        ggplot2::theme_bw(base_size = 10) +
+        ggplot2::theme(plot.title = ggplot2::element_text(size = 9, face = "bold"))
+    })
+    names(panel_plots) <- edges_to_plot
+
+    # Combine into a grid
+    n_panels <- length(panel_plots)
+    n_cols   <- min(ncol, n_panels)
+    n_rows   <- ceiling(n_panels / n_cols)
+
+    combined <- NULL
+    if (requireNamespace("patchwork", quietly = TRUE)) {
+      combined <- patchwork::wrap_plots(panel_plots, ncol = n_cols) +
+        patchwork::plot_annotation(
+          title = sprintf("Edge-Behavior Correlations: %s — Subgroup %s",
+                          behavioral_col, sg)
+        )
+    } else {
+      # Fall back to gridExtra if patchwork not available
+      if (!requireNamespace("gridExtra", quietly = TRUE)) {
+        warning("Install 'patchwork' or 'gridExtra' for multi-panel layout. Returning list of plots.")
+        combined <- panel_plots
+      } else {
+        combined <- gridExtra::arrangeGrob(
+          grobs = panel_plots, ncol = n_cols,
+          top = sprintf("Edge-Behavior Correlations: %s — Subgroup %s",
+                        behavioral_col, sg)
+        )
+      }
+    }
+
+    plot_list[[sg]] <- combined
+
+    if (save_figures) {
+      fig_file <- file.path(output_dir,
+                            sprintf("behaviorCorr_%s_subgroup_%s.png", behavioral_col, sg))
+      ggplot2::ggsave(fig_file,
+                      plot   = if (inherits(combined, "gg")) combined else gridExtra::arrangeGrob(grobs = panel_plots, ncol = n_cols),
+                      width  = n_cols * fig_width_per_panel,
+                      height = n_rows * fig_height_per_panel,
+                      dpi    = 150)
+      if (verbose) message(sprintf("Saved figure: %s", fig_file))
+    }
+  }
+
+  return(invisible(plot_list))
+}
